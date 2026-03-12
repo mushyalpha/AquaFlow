@@ -203,7 +203,7 @@ System Start
       WAITING
 
 ---
-
+```
 # Hardware Components
 
 | Component | Purpose | Estimated Cost |
