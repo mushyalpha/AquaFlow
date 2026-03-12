@@ -50,15 +50,13 @@
 
 | Component | Details |
 |-----------|---------|
-| **Raspberry Pi 5** | 4GB / 8GB RAM |
-| **MicroSD Card** | 16GB+ (Class 10) |
+| **Raspberry Pi 5** | 4GB RAM |
 | **Ultrasonic Sensor** | HC-SR04 (level detection) |
 | **Float Switch** | Optional backup level detection |
 | **Relay Module** | 5V single or dual channel |
 | **Water Pump** | 5V/12V DC submersible pump |
 | **Solenoid Valve** | 12V normally-closed valve |
 | **Power Supply** | 5V 5A USB-C (Pi 5) + 12V for actuators |
-| **Jumper Wires** | Male-to-female GPIO connections |
 
 ---
 
@@ -112,29 +110,6 @@ sudo ./smartflow
 
 ---
 
-## ⚙️ Configuration
-
-Edit `config/settings.cfg` before building:
-
-```ini
-[sensor]
-trig_pin         = 17
-echo_pin         = 27
-float_pin        = 24
-threshold_high   = 90        # % level to stop filling
-threshold_low    = 20        # % level to start filling
-poll_interval_ms = 500       # Sensor polling rate in milliseconds
-
-[actuator]
-pump_pin         = 22
-valve_pin        = 23
-pump_on_delay    = 200       # ms delay before pump starts
-
-[logging]
-enable           = true
-log_file         = /var/log/smartflow/fill_log.csv
-log_interval_s   = 5
-```
 
 ---
 
