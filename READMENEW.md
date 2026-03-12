@@ -30,7 +30,7 @@ The project is modelled directly on industrial bottling line automation.
 
 ## 2. Problem Statement & Motivation
 
-Manual water bottling is slow, inconsistent in fill volume and labour intensive. Industrial bottling plants solve this with automated conveyor based filling lines, but these systems are very expensive. This project demonstrates that the same fundamental automation concept: **detect, stop, fill, advance** — can be implemented on an affordable single board computer using real-time C++, achieving fill accuracy comparable to commercial systems.
+Manual water bottling is slow, inconsistent in fill volume and labour intensive. Industrial bottling plants solve this with automated conveyor based filling lines, but these systems are very expensive. This project demonstrates that the same fundamental automation concept: **detect, stop, fill, advance** can be implemented on an affordable single board computer using real-time C++, achieving fill accuracy comparable to commercial systems.
 
 The core engineering challenges are:
 - Detecting a bottle in the correct position reliably using an IR sensor
