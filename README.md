@@ -51,7 +51,7 @@ The main challenges are:
 # System Architecture
 
 ## Physical Layout
-
+```
 The water path is simple. A small pump pushes water from a container through the flow sensor and out through the filling nozzle.
 
 Water Tank / Container
@@ -76,7 +76,7 @@ Nozzle
 HC-SR04 Ultrasonic Sensor
 (detects bottle under nozzle)
 
-
+```
 ---
 
 # System Operation
