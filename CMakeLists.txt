@@ -20,6 +20,9 @@ add_executable(filling_machine
     src/utils/Logger.cpp
 )
 
+# Link lgpio library (required for GPIO access on Raspberry Pi 5)
+target_link_libraries(filling_machine lgpio)
+
 # ── Google Test (fetched automatically) ──────────────────────────────────────
 include(FetchContent)
 FetchContent_Declare(
@@ -47,7 +50,7 @@ add_executable(filling_tests
 )
 
 target_include_directories(filling_tests PRIVATE include src tests)
-target_link_libraries(filling_tests GTest::gtest_main)
+target_link_libraries(filling_tests GTest::gtest_main lgpio)
 
 include(GoogleTest)
 gtest_discover_tests(filling_tests)
