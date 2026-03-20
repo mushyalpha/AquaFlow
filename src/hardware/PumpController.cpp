@@ -3,6 +3,11 @@
 #include <lgpio.h>
 #include <iostream>
 
+// ─── Relay mode ──────────────────────────────────────────────────────────────
+// Set to true  if using a 1-channel relay module (active-LOW: IN=0 → pump ON).
+// Set to false if using a TIP121/MOSFET transistor  (active-HIGH: pin=1 → pump ON).
+static constexpr bool RELAY_MODE = true;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 PumpController::PumpController(int gpioHandle, int pumpPin)
@@ -18,25 +23,27 @@ PumpController::~PumpController() {
 }
 
 bool PumpController::init() {
-    // Claim pump pin as output, start LOW (pump OFF)
-    if (lgGpioClaimOutput(handle_, 0, pumpPin_, 0) != 0) {
+    // Start idle: relay-mode idles HIGH (de-energised), transistor-mode idles LOW.
+    int idleLevel = RELAY_MODE ? 1 : 0;
+    if (lgGpioClaimOutput(handle_, 0, pumpPin_, idleLevel) != 0) {
         std::cerr << "ERROR: Failed to claim PUMP pin " << pumpPin_ << "\n";
         return false;
     }
 
-    // Make sure pump is OFF at start (matches Python: GPIO.gpio_write(h, PUMP, 0))
-    lgGpioWrite(handle_, pumpPin_, 0);
+    lgGpioWrite(handle_, pumpPin_, idleLevel);  // ensure pump is OFF
     running_ = false;
     initialised_ = true;
 
-    std::cout << "PumpController initialised (PIN=" << pumpPin_ << ")\n";
+    std::cout << "PumpController initialised (PIN=" << pumpPin_
+              << ", mode=" << (RELAY_MODE ? "RELAY(active-LOW)" : "TRANSISTOR(active-HIGH)")
+              << ")\n";
     return true;
 }
 
 void PumpController::shutdown() {
     if (initialised_) {
-        // Always turn pump OFF on shutdown (matches Python finally block)
-        lgGpioWrite(handle_, pumpPin_, 0);
+        int idleLevel = RELAY_MODE ? 1 : 0;
+        lgGpioWrite(handle_, pumpPin_, idleLevel);  // always de-energise on shutdown
         lgGpioFree(handle_, pumpPin_);
         running_ = false;
         initialised_ = false;
@@ -46,7 +53,9 @@ void PumpController::shutdown() {
 
 void PumpController::turnOn() {
     if (initialised_ && !running_) {
-        lgGpioWrite(handle_, pumpPin_, 1);
+        // Relay module: de-energise = HIGH, energise (pump ON) = LOW
+        int onLevel = RELAY_MODE ? 0 : 1;
+        lgGpioWrite(handle_, pumpPin_, onLevel);
         running_ = true;
         std::cout << "Pump started!\n";
     }
@@ -54,7 +63,8 @@ void PumpController::turnOn() {
 
 void PumpController::turnOff() {
     if (initialised_ && running_) {
-        lgGpioWrite(handle_, pumpPin_, 0);
+        int offLevel = RELAY_MODE ? 1 : 0;
+        lgGpioWrite(handle_, pumpPin_, offLevel);
         running_ = false;
         std::cout << "Pump stopped.\n";
     }

@@ -17,7 +17,8 @@ constexpr double TARGET_DISTANCE_CM = 12.0;   // target bottle distance
 constexpr double DISTANCE_TOLERANCE_CM = 1.0; // ±1 cm tolerance (11–13 cm)
 
 // ─── Timing Settings ─────────────────────────────────────────────────────────
-constexpr int HOLD_TIME_SECONDS = 60;          // bottle must be stable for 60s
+// NOTE: Set back to 60 for the real demo — reduced to 5 for rapid testing.
+constexpr int HOLD_TIME_SECONDS = 5;           // bottle must be stable (seconds)
 constexpr int LOOP_INTERVAL_MS = 1000;         // main loop interval (1 second)
 
 // ─── Flow Settings ───────────────────────────────────────────────────────────
@@ -25,6 +26,6 @@ constexpr double ML_PER_PULSE = 2.25;          // calibration constant
 constexpr double TARGET_VOLUME_ML = 500.0;     // target fill volume
 
 // ─── GPIO Chip ───────────────────────────────────────────────────────────────
-constexpr int GPIO_CHIP = 0;                   // /dev/gpiochip0
+constexpr int GPIO_CHIP = 4;                   // /dev/gpiochip4 — Raspberry Pi 5 header
 
 #endif // PINCONFIG_H

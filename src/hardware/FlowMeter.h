@@ -9,35 +9,7 @@
 #include <iostream>
 #include <gpiod.hpp>
 
-// --- Valve Control ---
-class SolenoidValve {
-public:
-    SolenoidValve(unsigned int chipNo, unsigned int pinNo) 
-        : chipNo_(chipNo), pinNo_(pinNo) {
-        
-        const std::string chipPath = "/dev/gpiochip" + std::to_string(chipNo_);
-        chip_ = std::make_shared<gpiod::chip>(chipPath);
-        
-        gpiod::line_config lineCfg;
-        lineCfg.add_line_settings({pinNo_}, 
-            gpiod::line_settings().set_direction(gpiod::line::direction::OUTPUT));
 
-        auto builder = chip_->prepare_request();
-        builder.set_consumer("solenoid_valve");
-        builder.set_line_config(lineCfg);
-        request_ = std::make_shared<gpiod::line_request>(builder.do_request());
-    }
-
-    void open()  { request_->set_value(pinNo_, gpiod::line::value::ACTIVE); }
-    void close() { request_->set_value(pinNo_, gpiod::line::value::INACTIVE); }
-
-private:
-    unsigned int chipNo_, pinNo_;
-    std::shared_ptr<gpiod::chip> chip_;
-    std::shared_ptr<gpiod::line_request> request_;
-};
-
-// --- Flow Sensor Driver ---
 class FlowSensor {
 public:
     using FlowCallback = std::function<void(float)>;
