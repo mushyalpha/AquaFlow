@@ -3,6 +3,9 @@
 #include "hardware/PumpController.h"
 #include "hardware/FlowMeter.h"
 #include "state/FillingController.h"
+#include "monitor/Monitor.h"
+#include "utils/Timer.h"
+#include "utils/Logger.h"
 
 #include <lgpio.h>
 #include <iostream>
@@ -11,80 +14,94 @@
 #include <csignal>
 #include <atomic>
 
-// ─── Graceful shutdown on Ctrl+C (matches Python: except KeyboardInterrupt) ──
+// ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
 static std::atomic<bool> running(true);
 
-void signalHandler(int signum) {
-    std::cout << "\nMeasurement stopped by User\n";
+void signalHandler(int /*signum*/) {
+    std::cout << "\nShutdown requested — stopping...\n";
     running = false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 int main() {
-    // Register Ctrl+C handler
     std::signal(SIGINT, signalHandler);
 
-    // --- Open GPIO chip (matches Python: h = GPIO.gpiochip_open(0)) ---
-    int handle = lgGpiochipOpen(GPIO_CHIP);
-    if (handle < 0) {
-        std::cerr << "ERROR: Failed to open GPIO chip " << GPIO_CHIP << "\n";
+    // ── Open lgpio chip for PumpController (uses lgpio directly) ─────────────
+    int lgHandle = lgGpiochipOpen(GPIO_CHIP);
+    if (lgHandle < 0) {
+        Logger::error("Failed to open GPIO chip " + std::to_string(GPIO_CHIP) +
+                      " via lgpio");
         return 1;
     }
-    std::cout << "GPIO chip opened (handle=" << handle << ")\n";
 
-    // --- Create hardware objects ---
-    UltrasonicSensor sensor(handle, TRIG_PIN, ECHO_PIN);
-    PumpController pump(handle, PUMP_PIN);
-    FlowMeter flowMeter(handle, FLOW_PIN, ML_PER_PULSE);
+    // ── Construct hardware drivers ────────────────────────────────────────────
+    // UltrasonicSensor and FlowMeter use libgpiod (chip number as first arg)
+    UltrasonicSensor sensor(GPIO_CHIP_NO, TRIG_PIN, ECHO_PIN, SENSOR_PERIOD_MS);
+    FlowMeter        flowMeter(GPIO_CHIP_NO, FLOW_PIN, static_cast<float>(ML_PER_PULSE));
 
-    // --- Initialise hardware ---
+    // PumpController uses lgpio (relay/transistor control via handle)
+    PumpController pump(lgHandle, PUMP_PIN);
+
+    // ── Initialise hardware ───────────────────────────────────────────────────
     if (!sensor.init()) {
-        lgGpiochipClose(handle);
+        Logger::error("Failed to initialise UltrasonicSensor");
+        lgGpiochipClose(lgHandle);
         return 1;
     }
     if (!pump.init()) {
+        Logger::error("Failed to initialise PumpController");
         sensor.shutdown();
-        lgGpiochipClose(handle);
+        lgGpiochipClose(lgHandle);
         return 1;
     }
     if (!flowMeter.init()) {
+        Logger::error("Failed to initialise FlowMeter");
         pump.shutdown();
         sensor.shutdown();
-        lgGpiochipClose(handle);
+        lgGpiochipClose(lgHandle);
         return 1;
     }
 
-    // --- Create the state machine ---
+    // ── State machine + monitor ───────────────────────────────────────────────
     FillingController controller(sensor, pump, flowMeter,
-                                  TARGET_DISTANCE_CM,
-                                  DISTANCE_TOLERANCE_CM,
-                                  HOLD_TIME_SECONDS,
-                                  TARGET_VOLUME_ML);
+                                 TARGET_DISTANCE_CM,
+                                 DISTANCE_TOLERANCE_CM,
+                                 HOLD_TIME_SECONDS,
+                                 TARGET_VOLUME_ML);
 
-    std::cout << "\n=== SmartFlowX Filling Machine Started ===\n";
-    std::cout << "Target distance: " << TARGET_DISTANCE_CM << " cm (±"
-              << DISTANCE_TOLERANCE_CM << " cm)\n";
-    std::cout << "Hold time: " << HOLD_TIME_SECONDS << " seconds\n";
-    std::cout << "Target volume: " << TARGET_VOLUME_ML << " ml\n";
-    std::cout << "Flow calibration: " << ML_PER_PULSE << " ml/pulse\n\n";
+    Monitor monitor;
+    controller.registerMonitor([&](const std::string& state, double vol, int bottles) {
+        monitor.onStateChange(state, vol, bottles);
+    });
 
-    // --- Main loop (matches Python: while True, with 1 second sleep) ---
-    while (running) {
+    Logger::info("=== AquaFlow Filling Machine Started ===");
+    Logger::info("Target distance : " + std::to_string(TARGET_DISTANCE_CM) + " cm");
+    Logger::info("Tolerance       : +-" + std::to_string(DISTANCE_TOLERANCE_CM) + " cm");
+    Logger::info("Hold time       : " + std::to_string(HOLD_TIME_SECONDS) + " s");
+    Logger::info("Target volume   : " + std::to_string(TARGET_VOLUME_ML) + " ml");
+    Logger::info("Flow calibration: " + std::to_string(ML_PER_PULSE) + " ml/pulse");
+
+    // ── RTES-compliant main loop: timerfd callback instead of sleep_for ───────
+    Timer loopTimer(LOOP_INTERVAL_MS);
+    loopTimer.registerCallback([&]() {
+        if (!running) return;
         controller.tick();
-        std::cout << "[State: " << controller.getStateName()
-                  << " | Bottles filled: " << controller.getBottleCount()
-                  << "]\n\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(LOOP_INTERVAL_MS));
+    });
+    loopTimer.start();
+
+    // Block main thread with minimal CPU usage until Ctrl+C
+    while (running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // --- Cleanup (matches Python: finally block) ---
-    std::cout << "\nShutting down...\n";
+    // ── Shutdown (order: timer → flow → pump → sensor → gpio) ────────────────
+    loopTimer.stop();
     flowMeter.shutdown();
     pump.shutdown();
     sensor.shutdown();
-    lgGpiochipClose(handle);
-    std::cout << "GPIO chip closed. Goodbye.\n";
+    lgGpiochipClose(lgHandle);
 
+    Logger::info("AquaFlow stopped. Goodbye.");
     return 0;
 }

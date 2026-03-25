@@ -25,7 +25,11 @@ constexpr int LOOP_INTERVAL_MS = 1000;         // main loop interval (1 second)
 constexpr double ML_PER_PULSE = 2.25;          // calibration constant
 constexpr double TARGET_VOLUME_ML = 500.0;     // target fill volume
 
-// ─── GPIO Chip ───────────────────────────────────────────────────────────────
-constexpr int GPIO_CHIP = 4;                   // /dev/gpiochip4 — Raspberry Pi 5 header
+// ─── GPIO Chip ───────────────────────────────────────────────────────────
+constexpr int          GPIO_CHIP    = 4;   // lgpio handle — /dev/gpiochip4 (Pi 5)
+constexpr unsigned int GPIO_CHIP_NO = 4u;  // libgpiod chip number  (Pi 5)
+
+// ─── Sensor Timing ───────────────────────────────────────────────────────────
+constexpr int SENSOR_PERIOD_MS = 200;      // 5 Hz ultrasonic sampling rate
 
 #endif // PINCONFIG_H

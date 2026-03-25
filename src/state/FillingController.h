@@ -5,6 +5,7 @@
 #include "hardware/PumpController.h"
 #include "hardware/FlowMeter.h"
 #include <chrono>
+#include <functional>
 #include <string>
 
 /**
@@ -56,10 +57,22 @@ public:
     /**
      * @brief Run one cycle of the state machine.
      *
-     * Call this repeatedly from main() in a loop.
-     * This is the C++ equivalent of the Python while True loop body.
+     * Call this repeatedly (e.g. from a Timer callback).
+     * After each tick, calls the registered monitor callback (if any)
+     * with the current state, volume, and bottle count.
      */
     void tick();
+
+    /**
+     * @brief Register a callback that is called after every tick.
+     *
+     * Used to wire in Monitor or any other observer without coupling
+     * FillingController to a specific output class (SOLID OCP).
+     */
+    using MonitorCallback = std::function<void(const std::string& state,
+                                               double volumeML,
+                                               int    bottleCount)>;
+    void registerMonitor(MonitorCallback cb) { monitorCallback_ = std::move(cb); }
 
     /** @brief Get the current system state. */
     SystemState getState() const;
@@ -96,6 +109,8 @@ private:
     std::chrono::steady_clock::time_point holdStartTime_;
     double lastDistance_;
     int bottleCount_;
+
+    MonitorCallback monitorCallback_;  ///< Optional observer, called after each tick.
 };
 
 #endif // FILLINGCONTROLLER_H

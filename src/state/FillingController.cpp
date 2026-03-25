@@ -24,7 +24,8 @@ FillingController::FillingController(UltrasonicSensor& sensor,
       state_(SystemState::WAITING),
       holdStartTime_(),
       lastDistance_(-1.0),
-      bottleCount_(0)
+      bottleCount_(0),
+      monitorCallback_(nullptr)
 {
 }
 
@@ -122,6 +123,11 @@ void FillingController::tick() {
         std::cout << "Fill complete. Waiting for next bottle...\n";
         break;
     }
+    }
+
+    // Notify any registered observer after every tick
+    if (monitorCallback_) {
+        monitorCallback_(getStateName(), flowMeter_.getVolumeML(), bottleCount_);
     }
 }
 

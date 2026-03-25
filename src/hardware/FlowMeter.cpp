@@ -1,40 +1,81 @@
-#include <iostream>      // Console output
-#include "FlowMeter.h"   // FlowSensor class
+#include "hardware/FlowMeter.h"
 
-int main() {
+#include <stdexcept>
+#include <string>
 
+// ── IHardwareDevice ───────────────────────────────────────────────────────────
+
+bool FlowMeter::init() {
+    if (running_) return true;  // Already started
     try {
-
-        // Create flow sensor on chip 4, GPIO23, calibration = 98 pulses/L/min
-        // Change chip number if needed:
-        //   Pi 5 often uses gpiochip4, older Pi often gpiochip0
-        FlowSensor flowSensor(4, 23, 98.0f);
-
-        // Optional: callback on every pulse (useful for debugging)
-        flowSensor.registerPulseCallback([]() {
-            // Runs each time the sensor detects a pulse
-        });
-
-        // Callback for flow rate — prints L/min every second
-        flowSensor.registerFlowCallback([](float flowRate) {
-            std::cout << "Flow Rate: " << flowRate << " L/min" << std::endl;
-        });
-
-        // Start measuring (launches background threads)
-        flowSensor.start();
-
-        std::cout << "Flow sensor started. Press Enter to stop..." << std::endl;
-
-        // Keep running until user presses Enter
-        std::cin.get();
-
-        // Clean shutdown
-        flowSensor.stop();
+        setupGpio();
+    } catch (const std::exception& e) {
+        return false;
     }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
-    }
+    running_ = true;
+    pulseCount_ = 0;
+    edgeThread_ = std::thread(&FlowMeter::edgeWorker, this);
+    return true;
+}
 
-    return 0;
+void FlowMeter::shutdown() {
+    if (!running_) return;
+    running_ = false;
+    if (edgeThread_.joinable()) edgeThread_.join();
+    // Release libgpiod resources (smart pointers handle cleanup)
+    request_.reset();
+    chip_.reset();
+}
+
+// ── Flow data API ─────────────────────────────────────────────────────────────
+
+void FlowMeter::resetCount() {
+    pulseCount_.store(0);
+}
+
+int FlowMeter::getPulseCount() const {
+    return pulseCount_.load();
+}
+
+double FlowMeter::getVolumeML() const {
+    return static_cast<double>(pulseCount_.load()) * mlPerPulse_;
+}
+
+bool FlowMeter::hasReachedTarget(double targetVolumeML) const {
+    return getVolumeML() >= targetVolumeML;
+}
+
+// ── Private ───────────────────────────────────────────────────────────────────
+
+void FlowMeter::setupGpio() {
+    const std::string chipPath = "/dev/gpiochip" + std::to_string(chipNo_);
+    chip_ = std::make_shared<gpiod::chip>(chipPath);
+
+    gpiod::line_config lineCfg;
+    lineCfg.add_line_settings(
+        {pinNo_},
+        gpiod::line_settings()
+            .set_direction(gpiod::line::direction::INPUT)
+            .set_edge_detection(gpiod::line::edge::FALLING));
+
+    auto builder = chip_->prepare_request();
+    builder.set_consumer("flow_meter");
+    builder.set_line_config(lineCfg);
+    request_ = std::make_shared<gpiod::line_request>(builder.do_request());
+}
+
+void FlowMeter::edgeWorker() {
+    while (running_) {
+        // Blocking wait — thread sleeps until a pulse arrives or 200 ms timeout
+        if (request_->wait_edge_events(std::chrono::milliseconds(200))) {
+            gpiod::edge_event_buffer buffer(8);
+            std::size_t num = request_->read_edge_events(buffer);
+            for (std::size_t i = 0; i < num; ++i) {
+                if (buffer.get_event(i).event_type() ==
+                    gpiod::edge_event::event_type::FALLING_EDGE) {
+                    pulseCount_++;
+                }
+            }
+        }
+    }
 }

@@ -1,6 +1,8 @@
 #pragma once
 // Prevents the header from being included multiple times
 
+#include "IHardwareDevice.h"
+
 #include <atomic>           // Thread-safe variables
 #include <chrono>           // Timing operations
 #include <cstdint>          // Fixed-width integer types
@@ -25,7 +27,7 @@
  * Uses a timerfd-based worker thread for periodic measurements
  * and delivers results via registered callbacks.
  */
-class UltrasonicSensor {
+class UltrasonicSensor : public IHardwareDevice {
 public:
     using DistanceCallback = std::function<void(float)>;             // distance in cm
     using ErrorCallback = std::function<void(const std::string&)>;   // error reporting
@@ -59,6 +61,10 @@ public:
         errorCallback_ = std::move(cb);
     }
 
+    // ── IHardwareDevice interface ────────────────────────────────────────────
+    bool init() override { start(); return true; }
+    void shutdown() override { stop(); }
+
     // Start the sensor — sets up GPIO, timer, and launches worker thread
     void start() {
         if (running_) return;       // Prevent starting twice
@@ -86,6 +92,27 @@ public:
         if (workerThread_.joinable()) {
             workerThread_.join();
         }
+    }
+
+    // ── Polling bridge (safe to call from any thread) ────────────────────────
+
+    /**
+     * @brief Return the last measured distance in cm, or -1 on timeout/error.
+     *
+     * The value is written by the worker thread (via atomic store) whenever a
+     * valid measurement arrives. Callers read a snapshot — never blocking.
+     */
+    float getDistanceCM() const { return lastDistance_.load(); }
+
+    /**
+     * @brief True if the latest distance reading is within the target range.
+     * @param targetCM   Centre of the expected bottle position in cm.
+     * @param tolerance  ± tolerance in cm.
+     */
+    bool isBottlePresent(double targetCM, double tolerance) const {
+        float d = lastDistance_.load();
+        if (d < 0) return false;
+        return (d >= targetCM - tolerance) && (d <= targetCM + tolerance);
     }
 
 private:
@@ -172,6 +199,7 @@ private:
 
             // Report error or success via callbacks
             if (distanceCm < 0.0f) {
+                lastDistance_.store(-1.0f);   // Indicate error to polling callers
                 if (distanceCm == -1.0f) {
                     publishError("Echo never went HIGH");
                 } else if (distanceCm == -2.0f) {
@@ -182,6 +210,7 @@ private:
                     publishError("Measurement failed");
                 }
             } else {
+                lastDistance_.store(distanceCm);  // Update snapshot for polling callers
                 if (distanceCallback_) {
                     distanceCallback_(distanceCm);
                 }
@@ -318,6 +347,8 @@ private:
     }
 
     // ── Member Variables ─────────────────────────────────────────────────────
+
+    std::atomic<float> lastDistance_{-1.0f}; // Latest distance snapshot (polling bridge)
 
 private:
     unsigned int chipNo_;       // GPIO chip number (e.g. 0 or 4)
