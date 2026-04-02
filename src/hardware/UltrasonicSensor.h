@@ -266,24 +266,24 @@ private:
         setTrig(false);
 
         // Wait for echo rising edge (sound wave leaves sensor)
-        gpiod::edge_event risingEvent;
-        if (!waitForEdge(gpiod::edge_event_types::event_type::RISING_EDGE,
+        uint64_t tStart = 0;
+        if (!waitForEdge(gpiod::edge_event::event_type::RISING_EDGE,
                          std::chrono::milliseconds(50),
-                         risingEvent)) {
+                         tStart)) {
             return -1.0f;           // Timeout — no echo received
         }
 
         // Wait for echo falling edge (sound wave returns)
-        gpiod::edge_event fallingEvent;
-        if (!waitForEdge(gpiod::edge_event_types::event_type::FALLING_EDGE,
+        uint64_t tEnd = 0;
+        if (!waitForEdge(gpiod::edge_event::event_type::FALLING_EDGE,
                          std::chrono::milliseconds(50),
-                         fallingEvent)) {
+                         tEnd)) {
             return -2.0f;           // Timeout — echo stuck HIGH
         }
 
         // Calculate pulse width from kernel timestamps (nanoseconds)
-        const auto tStart = risingEvent.timestamp_ns();
-        const auto tEnd = fallingEvent.timestamp_ns();
+        
+        
 
         if (tEnd <= tStart) {
             return -3.0f;           // Invalid — falling before rising
@@ -302,9 +302,9 @@ private:
 
     // Wait for a specific GPIO edge event (RISING or FALLING) with timeout
     // Returns true if the wanted edge was found, false on timeout
-    bool waitForEdge(int wantedType,
+    bool waitForEdge(gpiod::edge_event::event_type wantedType,
                      std::chrono::milliseconds timeout,
-                     gpiod::edge_event& matchedEvent) {
+                     uint64_t& matchedTimestamp) {
         const auto deadline = std::chrono::steady_clock::now() + timeout;
 
         while (running_) {
@@ -330,8 +330,8 @@ private:
             for (std::size_t i = 0; i < numEvents; ++i) {
                 const auto ev = buffer.get_event(i);
 
-                if (ev.event_type() == wantedType) {
-                    matchedEvent = ev;
+                if (ev.type() == wantedType) {
+                    matchedTimestamp = static_cast<uint64_t>(ev.timestamp_ns());
                     return true;    // Found it
                 }
             }

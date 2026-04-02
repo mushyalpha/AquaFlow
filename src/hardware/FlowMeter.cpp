@@ -71,7 +71,7 @@ void FlowMeter::edgeWorker() {
             gpiod::edge_event_buffer buffer(8);
             std::size_t num = request_->read_edge_events(buffer);
             for (std::size_t i = 0; i < num; ++i) {
-                if (buffer.get_event(i).event_type() ==
+                if (buffer.get_event(i).type() ==
                     gpiod::edge_event::event_type::FALLING_EDGE) {
                     pulseCount_++;
                 }
