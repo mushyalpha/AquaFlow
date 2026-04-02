@@ -13,16 +13,16 @@
 static std::atomic<bool> keepRunning(true);
 
 void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping...\n";
+    std::cout << "\n[Signal " << signum << "] Stopping pump...\n";
     keepRunning = false;
 }
 
 int main() {
     std::signal(SIGINT, signalHandler);
 
-    std::cout << "=== Pump + Flow Meter Duo Test ===\n";
-    std::cout << "Target : " << TARGET_VOLUME_ML << " ml\n";
-    std::cout << "ml/pulse: " << ML_PER_PULSE << "\n\n";
+    std::cout << "=== Pump + Flow Meter Calibration Test ===\n";
+    std::cout << "Current ml/pulse : " << ML_PER_PULSE << "\n";
+    std::cout << "Press Ctrl+C when your beaker hits the target volume.\n\n";
 
     PumpController pump(GPIO_CHIP_NO, PUMP_PIN);
     FlowMeter      flow(GPIO_CHIP_NO, FLOW_PIN, static_cast<float>(ML_PER_PULSE));
@@ -32,35 +32,48 @@ int main() {
 
     flow.resetCount();
     pump.turnOn();
-    std::cout << "Pump ON — watching for flow...\n\n";
+    std::cout << "Pump ON...\n\n";
 
+    // Run until Ctrl+C — no auto-stop
     while (keepRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         int    pulses = flow.getPulseCount();
         double vol    = flow.getVolumeML();
 
-        std::cout << "  [" << std::setw(6)
-                  << std::chrono::duration_cast<std::chrono::seconds>(
-                         std::chrono::steady_clock::now().time_since_epoch()).count() % 10000
-                  << "]  Pulses: " << std::setw(6) << pulses
-                  << "   Vol: " << std::fixed << std::setprecision(1)
+        std::cout << "  Pulses: " << std::setw(6) << pulses
+                  << "   Vol (estimated): " << std::fixed << std::setprecision(1)
                   << std::setw(7) << vol << " ml\n";
-
-        if (flow.hasReachedTarget(TARGET_VOLUME_ML)) {
-            std::cout << "\n\nTarget reached!\n";
-            break;
-        }
     }
 
     pump.turnOff();
 
-    double finalVol = flow.getVolumeML();
-    std::cout << "\nFinal : " << std::fixed << std::setprecision(2)
-              << finalVol << " ml (" << flow.getPulseCount() << " pulses)\n";
+    int finalPulses = flow.getPulseCount();
+    std::cout << "\nPump OFF.\n";
+    std::cout << "Sensor counted : " << finalPulses << " pulses\n\n";
+
+    // ── Calibration helper ────────────────────────────────────────────────────
+    std::cout << "How many ml did you actually measure in the beaker? ";
+    double actualMl = 0.0;
+    std::cin >> actualMl;
+
+    if (finalPulses > 0 && actualMl > 0.0) {
+        double newMlPerPulse = actualMl / static_cast<double>(finalPulses);
+        std::cout << "\n── Calibration Result ───────────────────────────────\n";
+        std::cout << "  Actual volume  : " << std::fixed << std::setprecision(1) << actualMl    << " ml\n";
+        std::cout << "  Pulse count    : " << finalPulses << "\n";
+        std::cout << "  Old ml/pulse   : " << ML_PER_PULSE << "\n";
+        std::cout << "  NEW ml/pulse   : " << std::setprecision(6) << newMlPerPulse << "\n";
+        std::cout << "\nUpdate PinConfig.h:\n";
+        std::cout << "  constexpr double ML_PER_PULSE = "
+                  << std::setprecision(6) << newMlPerPulse << ";\n";
+        std::cout << "─────────────────────────────────────────────────────\n";
+    } else {
+        std::cout << "Invalid input — calibration skipped.\n";
+    }
 
     flow.shutdown();
     pump.shutdown();
-    std::cout << "Test complete.\n";
     return 0;
 }
+
