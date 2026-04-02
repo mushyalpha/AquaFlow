@@ -69,17 +69,33 @@ void FlowMeter::setupGpio() {
 }
 
 void FlowMeter::edgeWorker() {
+    // Initialise to epoch so the very first real pulse is always accepted
+    lastPulseTime_ = std::chrono::steady_clock::time_point{};
+
     while (running_) {
         // Blocking wait — thread sleeps until a pulse arrives or 200 ms timeout
         if (request_->wait_edge_events(std::chrono::milliseconds(200))) {
             gpiod::edge_event_buffer buffer(8);
             std::size_t num = request_->read_edge_events(buffer);
+
             for (std::size_t i = 0; i < num; ++i) {
-                if (buffer.get_event(i).type() ==
+                if (buffer.get_event(i).event_type() ==
                     gpiod::edge_event::event_type::FALLING_EDGE) {
-                    pulseCount_++;
+
+                    auto now = std::chrono::steady_clock::now();
+                    auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   now - lastPulseTime_).count();
+
+                    // Debounce: reject bursts spaced closer than DEBOUNCE_MS.
+                    // Real YF-S401 pulses at max flow are ~10 ms apart;
+                    // motor-EMI noise bursts arrive microseconds apart.
+                    if (gap >= DEBOUNCE_MS) {
+                        pulseCount_++;
+                        lastPulseTime_ = now;
+                    }
                 }
             }
         }
     }
 }
+
