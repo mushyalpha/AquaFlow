@@ -12,7 +12,7 @@
 #include <gpiod.hpp>
 
 /**
- * @brief YF-S201 hall-effect flow sensor driver.
+ * @brief YF-S401 hall-effect flow sensor driver.
  *
  * Uses libgpiod v2 to detect falling edges (pulses) on the sensor's
  * signal pin in a dedicated thread (blocking I/O, no polling).
@@ -20,6 +20,10 @@
  * Each pulse corresponds to a fixed volume of water (mlPerPulse).
  * The accumulated count is exposed via a poll-safe atomic API so that
  * FillingController can query volume without locking.
+ *
+ * Software debouncing rejects pulses spaced closer than DEBOUNCE_MS apart.
+ * At the YF-S401's maximum flow rate (6 L/min) real pulses are ~10 ms apart,
+ * so a 5 ms debounce window filters motor-induced EMI without losing real data.
  *
  * Inherits IHardwareDevice for SOLID Liskov substitutability.
  */
@@ -67,8 +71,16 @@ private:
     unsigned int pinNo_;
     float mlPerPulse_;
 
+    // Minimum time between valid pulses (ms).
+    // YF-S401 max flow = 6 L/min → ~98 pulses/sec → ~10 ms between pulses.
+    // 5 ms rejects motor-EMI noise bursts while passing all real flow pulses.
+    static constexpr int DEBOUNCE_MS = 5;
+
     std::atomic<bool> running_{false};
     std::atomic<int>  pulseCount_{0};
+
+    // Only ever written/read by edgeWorker — no atomic needed
+    std::chrono::steady_clock::time_point lastPulseTime_{};
 
     std::thread edgeThread_;
     std::shared_ptr<gpiod::chip>         chip_;
