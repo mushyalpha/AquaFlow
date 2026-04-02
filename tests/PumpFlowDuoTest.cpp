@@ -40,10 +40,12 @@ int main() {
         int    pulses = flow.getPulseCount();
         double vol    = flow.getVolumeML();
 
-        std::cout << "\r  Pulses: " << std::setw(6) << pulses
+        std::cout << "  [" << std::setw(6)
+                  << std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::steady_clock::now().time_since_epoch()).count() % 10000
+                  << "]  Pulses: " << std::setw(6) << pulses
                   << "   Vol: " << std::fixed << std::setprecision(1)
-                  << std::setw(7) << vol << " ml"
-                  << std::flush;
+                  << std::setw(7) << vol << " ml\n";
 
         if (flow.hasReachedTarget(TARGET_VOLUME_ML)) {
             std::cout << "\n\nTarget reached!\n";
