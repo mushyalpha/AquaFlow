@@ -102,3 +102,12 @@ add_executable(hardware_trio_test
 )
 target_include_directories(hardware_trio_test PRIVATE include src)
 target_link_libraries(hardware_trio_test gpiodcxx pthread)
+
+# Pump + FlowMeter only — no LCD
+add_executable(pump_flow_duo_test
+    tests/PumpFlowDuoTest.cpp
+    src/hardware/PumpController.cpp
+    src/hardware/FlowMeter.cpp
+)
+target_include_directories(pump_flow_duo_test PRIVATE include src)
+target_link_libraries(pump_flow_duo_test gpiodcxx pthread)
