@@ -21,8 +21,7 @@ void signalHandler(int signum) {
 int main() {
     std::signal(SIGINT, signalHandler);
 
-    std::cout << "=== Touchless Dispenser Terminal Test ===\n";
-    std::cout << "Target volume : " << TARGET_VOLUME_ML << " ml\n";
+    std::cout << "=== Touchless Dispenser Gesture Terminal Test ===\n";
     std::cout << "ML per pulse  : " << ML_PER_PULSE << "\n\n";
 
     // ── Construct ─────────────────────────────────────────────────────────────
@@ -43,36 +42,84 @@ int main() {
         pump.shutdown(); flow.shutdown(); return 1;
     }
 
-    std::atomic<bool> isDispensing(false);
-    std::atomic<bool> targetReached(false);
+    enum class AppState { SELECTING, CONFIRMED, DISPENSING, DONE };
+    std::atomic<AppState> appState(AppState::SELECTING);
+
+    // McDonalds UK Sizes!
+    std::atomic<int> activeTargetVolume(400); // Default to Medium
     bool waitingMessagePrinted = false;
 
     gesture.registerEventCallback([&](const GestureEvent& ev) {
-        if (ev.state == ProximityState::PROXIMITY_TRIGGERED) {
-            std::cout << "\n>>> CUP DETECTED! Ready to dispense.\n";
-            // Start pour only if we aren't already dispensing or haven't hit target yet
-            if (!isDispensing && !targetReached) {
+        
+        // 1. Gesture Size Selection Logic
+        if (appState == AppState::SELECTING) {
+            if (ev.direction == GestureDir::LEFT) {
+                if (activeTargetVolume == 500) activeTargetVolume = 400; // L -> M
+                else if (activeTargetVolume == 400) activeTargetVolume = 250; // M -> S
+                
+                std::cout << "\n<<< SWIPE LEFT: Size changed to ";
+                if (activeTargetVolume == 250) std::cout << "SMALL (250ml)\n";
+                else std::cout << "MEDIUM (400ml)\n";
+                waitingMessagePrinted = false;
+            } 
+            else if (ev.direction == GestureDir::RIGHT) {
+                if (activeTargetVolume == 250) activeTargetVolume = 400; // S -> M
+                else if (activeTargetVolume == 400) activeTargetVolume = 500; // M -> L
+                
+                std::cout << "\n>>> SWIPE RIGHT: Size changed to ";
+                if (activeTargetVolume == 500) std::cout << "LARGE (500ml)\n";
+                else std::cout << "MEDIUM (400ml)\n";
+                waitingMessagePrinted = false;
+            }
+            else if (ev.direction == GestureDir::UP || ev.direction == GestureDir::DOWN) {
+                // Confirm selection with vertical swipe!
+                std::cout << "\n*** SIZE CONFIRMED: " << activeTargetVolume << "ml ***\n";
+                std::cout << "[-] Place your cup under the nozzle to dispense.\n";
+                appState = AppState::CONFIRMED;
+                waitingMessagePrinted = false;
+            }
+        }
+        
+        // 2. Proximity Dispensing Logic (Only triggers if confirmed!)
+        else if (appState == AppState::CONFIRMED) {
+            if (ev.state == ProximityState::PROXIMITY_TRIGGERED) {
+                std::cout << "\n>>> CUP DETECTED! Dispensing " << activeTargetVolume << " ml.\n";
                 flow.resetCount();
-                isDispensing = true;
+                appState = AppState::DISPENSING;
                 waitingMessagePrinted = false;
                 pump.turnOn();
             }
-        } else if (ev.state == ProximityState::PROXIMITY_CLEARED) {
-            std::cout << "\n>>> CUP REMOVED! Dispensing stopped.\n";
-            isDispensing = false;
-            targetReached = false; // reset for next cup
-            waitingMessagePrinted = false;
-            pump.turnOff();
+        } 
+        
+        // 3. Emergency Stop Logic
+        else if (appState == AppState::DISPENSING) {
+            if (ev.state == ProximityState::PROXIMITY_CLEARED) {
+                std::cout << "\n>>> CUP REMOVED EARLY! Dispensing aborted. Returning to selection screen.\n";
+                pump.turnOff();
+                appState = AppState::SELECTING; 
+                waitingMessagePrinted = false;
+            }
+        }
+        
+        // 4. Finished Logic
+        else if (appState == AppState::DONE) {
+            if (ev.state == ProximityState::PROXIMITY_CLEARED) {
+                std::cout << "\n[-] Cup removed. Returning to size selection mode.\n";
+                appState = AppState::SELECTING;
+                waitingMessagePrinted = false;
+            }
         }
     });
 
-    std::cout << "\n[-] System idle. Place a cup in front of sensor to begin...\n";
+    std::cout << "\n[-] System idle. Swipe Left/Right to select size.\n";
+    std::cout << "[-] Swipe UP or DOWN to confirm selection.\n";
+    std::cout << "[-] Current Size: MEDIUM (400ml).\n";
 
     // ── Live volume loop ──────────────────────────────────────────────────────
     while (keepRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-        if (isDispensing) {
+        if (appState == AppState::DISPENSING) {
             double vol = flow.getVolumeML();
             int pulses = flow.getPulseCount();
 
@@ -81,23 +128,22 @@ int main() {
                       << std::setw(7) << vol << " ml"
                       << std::flush;
 
-            // Stop when target reached
-            if (flow.hasReachedTarget(TARGET_VOLUME_ML)) {
-                std::cout << "\n\n*** TARGET REACHED! ***\n";
+            // Stop when we hit the dynamically selected size
+            if (flow.hasReachedTarget((double)activeTargetVolume)) {
+                std::cout << "\n\n*** TARGET " << activeTargetVolume << "ml REACHED! ***\n";
                 pump.turnOff();
-                isDispensing = false;
-                targetReached = true;
+                appState = AppState::DONE;
                 waitingMessagePrinted = false;
             }
-        } else if (targetReached) {
+        } else if (appState == AppState::DONE) {
             if (!waitingMessagePrinted) {
                 std::cout << "\n[-] Please remove your full cup.\n";
                 waitingMessagePrinted = true;
             }
-        } else {
+        } else if (appState == AppState::SELECTING) {
             // Idle but no target reached and not dispensing
             if (!waitingMessagePrinted) {
-                std::cout << "\n[-] System idle. Place a cup in front of sensor to begin...\n";
+                std::cout << "\n[-] Awaiting Gesture... (L/R to change, U/D to confirm)\n";
                 waitingMessagePrinted = true;
             }
         }

@@ -13,8 +13,17 @@ enum class ProximityState {
     PROXIMITY_CLEARED
 };
 
+enum class GestureDir {
+    NONE,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+};
+
 struct GestureEvent {
     ProximityState state;
+    GestureDir direction;
     int proximityValue;
 };
 
@@ -23,7 +32,7 @@ public:
     using EventCallback = std::function<void(const GestureEvent&)>;
     using ErrorCallback = std::function<void(const std::string&)>;
 
-    GestureSensor(int i2cBus = 1, int i2cAddr = 0x39, int threshold = 100);
+    GestureSensor(int i2cBus = 1, int i2cAddr = 0x39, int threshold = 40);
     ~GestureSensor() override;
 
     bool init() override;
@@ -47,4 +56,9 @@ private:
 
     EventCallback eventCallback_;
     ErrorCallback errorCallback_;
+
+    // Gesture decoding buffer
+    int gesture_ud_delta_{0};
+    int gesture_lr_delta_{0};
+    bool gesture_active_{false};
 };
