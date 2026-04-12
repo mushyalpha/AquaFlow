@@ -24,5 +24,64 @@ A master log of technical bottlenecks and the resolutions implemented for the Aq
 
 ## Problems Still To Solve
 - **Tubing Length & Cut:** We have 1m of 6mm tubing. Need to connect to both waterflow sensor and pump (both have inlet/outlet).
-- **Positioning:** How much distance do we want between the pump and the water flow sensor? Does one of them need to submerge in water? Does distance to nozzle or water source matter? 
-- **Sensor Voltage Dividers:** Ultrasonic sensor needs a voltage divider to connect safely to the Pi. Does the YF-S401 Flow Meter need one as well?
+- **Positioning:** How much distance do we want between the pump and the water flow sensor? Does one of them need to submerge in water? Does distance to nozzle or water source matter?
+
+---
+
+## Decision 4: Hardware Scope — Keep Current Design, Do Not Expand
+
+- **Context:** Proposal raised to extend the hardware (viscosity sensing, restoring the ultrasonic sensor). The counter-argument is that expanding hardware scope at this stage risks diverting time away from code quality — the primary marking criterion.
+- **Decision:** **Freeze the hardware at its current scope.** The system already fulfils its core function (touchless cup detection → pump → precise volume dispensing) and does so well. Adding components for novelty at this stage would provide diminishing returns.
+- **Rationale:**
+  - The assessment is marked predominantly on code quality (SOLID, encapsulation, real-time architecture, revision control, documentation). Hardware is not a graded criterion on its own.
+  - The novelty angle was assessed at the presentation stage, which has already passed.
+  - Bringing back the ultrasonic sensor is redundant — the APDS-9960 gesture sensor handles proximity detection and is already integrated. Running both in parallel would add complexity with no functional benefit.
+  - Time is better invested in: unit tests, documentation, UML diagrams, and commit quality — all of which directly affect the final grade.
+
+---
+
+## Decision 5: Pump Power Supply — Evaluate Powerbank Integration
+
+- **Context:** Current setup drives the pump via a TIP122 transistor + flyback diode from the Pi's 5V rail. A portable powerbank is available that could act as a dedicated external supply.
+- **Decision:** **Conditionally adopt the powerbank if integration is non-invasive.** If it can be wired as a simple external 5V supply (common ground with Pi, pump powered via powerbank, transistor control signal still from GPIO) without requiring a redesign of the existing circuit, it is worth adopting.
+- **Rationale:**
+  - A dedicated supply eliminates current spikes on the Pi's 5V rail, reducing the risk of the Pi browning out mid-dispense.
+  - The transistor switching circuit (base resistor + flyback diode) remains unchanged — only the supply rail moves.
+  - If it requires more than 30 minutes of hardware rework, defer. Code quality is the priority.
+- **Open action:** Wire powerbank → collector side of TIP122; verify common ground with Pi. Test pump performance under load.
+
+---
+
+## Decision 6: Volume Measurement — Retain Flow Meter, Improve Calibration
+
+- **Context:** Proposal to replace the YF-S401 flow meter with a load cell for more accurate volume measurement. The flow meter required field calibration against a beaker.
+- **Decision:** **Retain the YF-S401 flow meter.** Recalibrate using a more accurate volumetric flask if precision is still insufficient.
+- **Rationale:**
+  - Replacing the flow meter with a load cell would require a new hardware driver class, new calibration, and re-integration with `FillingController` — a significant diversion of time.
+  - The flow meter's event-driven pulse counting is already a strong RTES demonstration (GPIO interrupt → `atomic<int>` → callback). A load cell would likely require polling an ADC, which is architecturally weaker for this course.
+  - The current calibration (`0.073774 ml/pulse`, derived from 2711 pulses for 200 ml) is documented and reproducible. A more accurate flask would tighten this without touching code.
+  - A load cell is only justified if the flow meter's accuracy is proven to be a functional problem during the demo. Until then, it is not worth the risk.
+
+---
+
+## Decision 7: Gesture Sensor — Improve C++ Implementation, Do Not Switch Libraries
+
+- **Context:** Gesture direction detection (swipe UP/DOWN/LEFT/RIGHT) works reliably in Python but produces unreliable results in C++. Proximity detection works well in both. Proposal raised to port the Python library logic to C++.
+- **Decision:** **Improve the existing C++ FIFO parsing implementation.** The full APDS-9960 register-level documentation is available; the Python library is open-source and can be used as a reference for the algorithm, not as a dependency.
+- **Rationale:**
+  - The Python library (e.g., `adafruit-circuitpython-apds9960`) is not a C++ dependency and cannot be called directly. "Converting" it means reading its gesture-decoding logic and reimplementing it in C++ — which is exactly what our current `GestureSensor.cpp` does.
+  - The likely cause of the discrepancy is the FIFO read timing. Python libraries typically add small delays between FIFO reads to allow the gesture engine to settle; our C++ implementation polls the FIFO on a 50 ms timerfd tick which may be too coarse or too fast for certain swipe speeds.
+  - **Fix approach:** Compare the Python library's gesture-decoding thresholds and FIFO drain strategy against our current implementation. Tune `POLL_INTERVAL_MS`, gesture entry/exit thresholds (`GPENTH`/`GEXTH`), and the minimum-frame filter (`gesture_dataset_count_ > 4`).
+  - If gestures are improved, this becomes a strong novelty differentiator for the demo. If they remain unreliable, proximity-only mode (cup detection) is sufficient for the core dispensing function.
+- **On the ultrasonic sensor suggestion:** Rejected. An ultrasonic sensor cannot detect gesture direction and would only replicate the proximity function already handled by the APDS-9960.
+
+---
+
+## Decision 8: Project Complexity — Sufficient for Assessment Purposes
+
+- **Context:** Concern raised that the project may be too simple from a hardware perspective relative to other teams.
+- **Decision:** **Scope is adequate; shift focus to code depth and documentation quality.**
+- **Rationale:**
+  - Complexity in this course is judged on the *code*, not the number of hardware components. A simple hardware setup with excellent SOLID architecture, event-driven threading, comprehensive unit tests, and clean documentation will outperform a complex hardware setup with poor code quality.
+  - AquaFlow already demonstrates: multi-threaded event-driven architecture (`GestureSensor` + `FlowMeter` + `Timer` each on independent worker threads), a proper state machine (`FillingController`), RAII memory management, and `libgpiod` v2 GPIO — all of which are exactly what the marking rubric rewards.
+  - If gesture detection is polished and working for the demo, that alone is a compelling novelty angle that requires no additional hardware.
