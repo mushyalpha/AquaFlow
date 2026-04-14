@@ -1,12 +1,12 @@
 #include "hardware/PumpController.h"
 
 #include <stdexcept>
-#include <iostream>
+#include "utils/Logger.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-PumpController::PumpController(unsigned int chipNo, unsigned int pumpPin)
-    : chipNo_(chipNo), pumpPin_(pumpPin) {}
+PumpController::PumpController(unsigned int chipNo, unsigned int pumpPin, DriveMode mode)
+    : chipNo_(chipNo), pumpPin_(pumpPin), mode_(mode) {}
 
 PumpController::~PumpController() {
     shutdown();
@@ -27,7 +27,7 @@ bool PumpController::init() {
             pumpPin_,
             gpiod::line_settings()
                 .set_direction(gpiod::line::direction::OUTPUT)
-                .set_output_value(offValue()));   // start de-energised
+                .set_output_value(offValue()));   // start de energised
 
         auto builder = chip_->prepare_request();
         builder.set_consumer("pump_controller");
@@ -37,14 +37,14 @@ bool PumpController::init() {
         running_     = false;
         initialised_ = true;
 
-        std::cout << "PumpController initialised via libgpiod (chip="
-                  << chipNo_ << ", pin=" << pumpPin_
-                  << ", mode=" << (RELAY_MODE ? "RELAY(active-LOW)" : "TRANSISTOR(active-HIGH)")
-                  << ")\n";
+        Logger::info("PumpController initialised via libgpiod (chip=" +
+                     std::to_string(chipNo_) + ", pin=" + std::to_string(pumpPin_) +
+                     ", mode=" + std::string((mode_ == DriveMode::RELAY_ACTIVE_LOW) ? "RELAY(active-LOW)" : "TRANSISTOR(active-HIGH)") +
+                     ")");
         return true;
 
     } catch (const std::exception& e) {
-        std::cerr << "PumpController::init() error: " << e.what() << "\n";
+        Logger::error("PumpController::init() error: " + std::string(e.what()));
         return false;
     }
 }
@@ -57,7 +57,7 @@ void PumpController::shutdown() {
     initialised_ = false;
     request_.reset();
     chip_.reset();
-    std::cout << "PumpController shut down (pump OFF).\n";
+    Logger::info("PumpController shut down (pump OFF).");
 }
 
 // ── Pump control ──────────────────────────────────────────────────────────────
@@ -66,14 +66,14 @@ void PumpController::turnOn() {
     if (!initialised_ || running_) return;
     request_->set_value(pumpPin_, onValue());
     running_ = true;
-    std::cout << "Pump started!\n";
+    Logger::info("Pump started!");
 }
 
 void PumpController::turnOff() {
     if (!initialised_ || !running_) return;
     request_->set_value(pumpPin_, offValue());
     running_ = false;
-    std::cout << "Pump stopped.\n";
+    Logger::info("Pump stopped.");
 }
 
 bool PumpController::isRunning() const { return running_; }
@@ -83,11 +83,11 @@ bool PumpController::isRunning() const { return running_; }
 gpiod::line::value PumpController::onValue() const {
     // Relay (active-LOW): energise coil by pulling LOW
     // Transistor (active-HIGH): switch ON by pulling HIGH
-    return RELAY_MODE ? gpiod::line::value::INACTIVE
-                      : gpiod::line::value::ACTIVE;
+    return (mode_ == DriveMode::RELAY_ACTIVE_LOW) ? gpiod::line::value::INACTIVE
+                                                  : gpiod::line::value::ACTIVE;
 }
 
 gpiod::line::value PumpController::offValue() const {
-    return RELAY_MODE ? gpiod::line::value::ACTIVE
-                      : gpiod::line::value::INACTIVE;
+    return (mode_ == DriveMode::RELAY_ACTIVE_LOW) ? gpiod::line::value::ACTIVE
+                                                  : gpiod::line::value::INACTIVE;
 }

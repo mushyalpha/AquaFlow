@@ -106,3 +106,13 @@ A master log of technical bottlenecks and the resolutions implemented for the Aq
   - Designing a PCB in KiCad diverts significant time away from code architecture, testing, and documentation - all of which carry heavy weight in the assessment marking criteria.
   - A simple perfboard, stripboard, or Pi Prototype HAT achieves the exact same goal (eliminating loose breadboard jumper wires, creating a robust physical unit for demo day) but can be soldered together in a single afternoon using standard lab equipment.
   - The circuit is incredibly simple (one TIP122, a diode, a single resistor, and standard female header pins for the sensors) making a full custom PCB functionally overkill.
+
+---
+
+## Decision 11: Route Hardware Output through Logger (SRP Enforcement)
+
+- **Context:** The `PumpController` class used explicit `std::cout` and `std::cerr` calls for debugging and status updates (e.g., pump initialization, start/stop events).
+- **Decision:** **Substitute `std::cout/cerr` with `Logger::info()/error()` within all hardware driver classes (starting with `PumpController`).**
+- **Rationale:**
+  - **Single Responsibility Principle (SRP):** A hardware driver class should purely manage the hardware (e.g., pulling a GPIO pin high/low). Handling user presentation, including console output formatting, violates SRP because it gives the class two reasons to change: 1) if the hardware swaps, or 2) if logging/UI needs alteration.
+  - By routing messages through the `Logger` component, `PumpController` delegates the responsibility of formatting, routing, and thread-safety of logs back to a centralized utility designed for that purpose.

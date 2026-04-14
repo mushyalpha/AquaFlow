@@ -13,6 +13,7 @@
 - [ ] **Every class has exactly ONE clearly-defined responsibility.** No "god classes" doing multiple jobs (e.g., a class that both reads the sensor AND controls the pump AND logs simultaneously).
 - [ ] **Confirm current classes are properly separated:** `GestureSensor`, `PumpController`, `FlowMeter`, `LcdDisplay`, `FillingController`, `Monitor`, `Timer`, `Logger` - each should own one concern only.
 - [ ] **Document in README/docs** which responsibility each class owns (justifies SRP compliance to the marker).
+  - *Note: `PumpController`: logging via `Logger`; responsibility = pump GPIO control.*
 
 ### O - Open/Closed Principle
 - [ ] **Base classes exist that can be extended without modification.** e.g., `IHardwareDevice` as the base - new sensors should be addable by inheritance, not by editing existing classes.

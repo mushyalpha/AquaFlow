@@ -15,16 +15,22 @@
  * lgpio-based implementation which used a hobbyist library not officially
  * supported on Raspberry Pi OS.
  *
- * Relay mode (active-LOW): set RELAY_MODE = true  → pin LOW  = pump ON
- * Transistor mode:         set RELAY_MODE = false → pin HIGH = pump ON
+ * Relay mode (active-LOW): pass DriveMode::RELAY_ACTIVE_LOW
+ * Transistor mode:         pass DriveMode::TRANSISTOR_ACTIVE_HIGH
  */
 class PumpController : public IHardwareDevice {
 public:
+    enum class DriveMode {
+        RELAY_ACTIVE_LOW,
+        TRANSISTOR_ACTIVE_HIGH
+    };
+
     /**
      * @param chipNo   GPIO chip number (e.g. 4 for /dev/gpiochip4 on Pi 5).
      * @param pumpPin  BCM pin number for pump control output.
+     * @param mode     Drive polarity mode (default: TRANSISTOR_ACTIVE_HIGH).
      */
-    PumpController(unsigned int chipNo, unsigned int pumpPin);
+    PumpController(unsigned int chipNo, unsigned int pumpPin, DriveMode mode = DriveMode::TRANSISTOR_ACTIVE_HIGH);
     ~PumpController() override;
 
     bool init() override;
@@ -40,10 +46,7 @@ public:
     bool isRunning() const;
 
 private:
-    // Relay module: active-LOW (de-energise = HIGH, pump ON = LOW)
-    // Transistor:   active-HIGH (pin HIGH = pump ON)
-    // Based on user testing, 1 = ON and 0 = OFF, so we use transistor mode (active-HIGH).
-    static constexpr bool RELAY_MODE = false;
+    DriveMode mode_;
 
     gpiod::line::value onValue()  const;
     gpiod::line::value offValue() const;
