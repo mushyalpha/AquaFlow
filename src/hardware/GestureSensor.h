@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IHardwareDevice.h"
-#include <functional>
+#include "IProximitySensor.h"
 #include <thread>
 #include <atomic>
 #include <string>
@@ -10,39 +10,16 @@
 // timerfd_create / timerfd_settime (replaces sleep-based polling)
 #include <sys/timerfd.h>
 
-enum class ProximityState {
-    NONE,
-    PROXIMITY_TRIGGERED,
-    PROXIMITY_CLEARED
-};
-
-enum class GestureDir {
-    NONE,
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-};
-
-struct GestureEvent {
-    ProximityState state;
-    GestureDir direction;
-    int proximityValue;
-};
-
-class GestureSensor : public IHardwareDevice {
+class GestureSensor : public IHardwareDevice, public IProximitySensor {
 public:
-    using EventCallback = std::function<void(const GestureEvent&)>;
-    using ErrorCallback = std::function<void(const std::string&)>;
-
     GestureSensor(int i2cBus = 1, int i2cAddr = 0x39, int threshold = 40);
     ~GestureSensor() override;
 
     bool init() override;
     void shutdown() override;
 
-    void registerEventCallback(EventCallback cb);
-    void registerErrorCallback(ErrorCallback cb);
+    void registerEventCallback(IProximitySensor::EventCallback cb) override;
+    void registerErrorCallback(IProximitySensor::ErrorCallback cb) override;
 
 private:
     void worker();
@@ -58,8 +35,8 @@ private:
     std::atomic<bool> running_{false};
     std::thread workerThread_;
 
-    EventCallback eventCallback_;
-    ErrorCallback errorCallback_;
+    IProximitySensor::EventCallback eventCallback_;
+    IProximitySensor::ErrorCallback errorCallback_;
 
     // Gesture decoding buffer
     uint8_t first_u_{0}, first_d_{0}, first_l_{0}, first_r_{0};

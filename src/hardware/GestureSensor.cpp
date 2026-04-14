@@ -5,9 +5,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
-#include <iostream>
 #include <cmath>
 #include <stdexcept>
+#include <sstream>
+
+#include "utils/Logger.h"
 
 #define APDS9960_ID 0x92
 #define APDS9960_ENABLE 0x80
@@ -52,7 +54,9 @@ bool GestureSensor::init() {
 
         uint8_t id = readRegister(APDS9960_ID);
         if (id != BRAND_ID_ADAFRUIT_1 && id != BRAND_ID_ADAFRUIT_2 && id != BRAND_ID_DOLLATEK) {
-            std::cerr << "Warning: Unknown APDS9960 device ID: 0x" << std::hex << (int)id << std::dec << "\n";
+            std::ostringstream msg;
+            msg << "Warning: Unknown APDS9960 device ID: 0x" << std::hex << static_cast<int>(id);
+            Logger::warn(msg.str());
         }
 
         // Configure Gesture Engine
@@ -120,11 +124,11 @@ void GestureSensor::shutdown() {
     }
 }
 
-void GestureSensor::registerEventCallback(EventCallback cb) {
+void GestureSensor::registerEventCallback(IProximitySensor::EventCallback cb) {
     eventCallback_ = std::move(cb);
 }
 
-void GestureSensor::registerErrorCallback(ErrorCallback cb) {
+void GestureSensor::registerErrorCallback(IProximitySensor::ErrorCallback cb) {
     errorCallback_ = std::move(cb);
 }
 

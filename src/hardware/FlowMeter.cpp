@@ -6,7 +6,7 @@
 // ── IHardwareDevice ───────────────────────────────────────────────────────────
 
 bool FlowMeter::init() {
-    if (running_) return true;  // Already started
+    if (running_) return true; 
     try {
         setupGpio();
     } catch (const std::exception& e) {
@@ -22,7 +22,7 @@ void FlowMeter::shutdown() {
     if (!running_) return;
     running_ = false;
     if (edgeThread_.joinable()) edgeThread_.join();
-    // Release libgpiod resources (smart pointers handle cleanup)
+    // Release libgpiod resources
     request_.reset();
     chip_.reset();
 }
@@ -39,10 +39,6 @@ int FlowMeter::getPulseCount() const {
 
 double FlowMeter::getVolumeML() const {
     return static_cast<double>(pulseCount_.load()) * mlPerPulse_;
-}
-
-bool FlowMeter::hasReachedTarget(double targetVolumeML) const {
-    return getVolumeML() >= targetVolumeML;
 }
 
 // ── Private ───────────────────────────────────────────────────────────────────
@@ -73,7 +69,7 @@ void FlowMeter::edgeWorker() {
     lastPulseTime_ = std::chrono::steady_clock::time_point{};
 
     while (running_) {
-        // Blocking wait — thread sleeps until a pulse arrives or 200 ms timeout
+        // Blocking wait - thread sleeps until a pulse arrives or 200 ms timeout
         if (request_->wait_edge_events(std::chrono::milliseconds(200))) {
             gpiod::edge_event_buffer buffer(8);
             std::size_t num = request_->read_edge_events(buffer);
@@ -86,9 +82,11 @@ void FlowMeter::edgeWorker() {
                     auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(
                                    now - lastPulseTime_).count();
 
-                    // Debounce: reject bursts spaced closer than DEBOUNCE_MS.
-                    // Real YF-S401 pulses at max flow are ~10 ms apart;
-                    // motor-EMI noise bursts arrive microseconds apart.
+                    // ignore any two pulses that arrive too quickly
+                    // Real water flow from the sensor produces pulses about every 10 ms
+                    // electrical noise shows up much faster like in microseconds.
+                    // So if the gap between pulses is at least DEBOUNCE_MS (5 ms)
+                    // we count it but if its less than that we treat it as noise and skip it.
                     if (gap >= DEBOUNCE_MS) {
                         pulseCount_++;
                         lastPulseTime_ = now;
@@ -98,4 +96,5 @@ void FlowMeter::edgeWorker() {
         }
     }
 }
+
 

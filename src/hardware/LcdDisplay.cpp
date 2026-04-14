@@ -8,10 +8,10 @@
 #include <chrono>
 #include <cstring>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include "utils/Logger.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -77,12 +77,14 @@ bool LcdDisplay::init() {
         backlightOn_ = true;
         initialised_ = true;
 
-        std::cout << "LcdDisplay initialised (bus=" << busNo_
-                  << ", addr=0x" << std::hex << addr_ << std::dec << ")\n";
+        std::ostringstream addrHex;
+        addrHex << std::hex << addr_;
+        Logger::info("LcdDisplay initialised (bus=" + std::to_string(busNo_) +
+                     ", addr=0x" + addrHex.str() + ")");
         return true;
 
     } catch (const std::exception& e) {
-        std::cerr << "LcdDisplay::init() error: " << e.what() << "\n";
+        Logger::error(std::string("LcdDisplay::init() error: ") + e.what());
         if (fd_ >= 0) { close(fd_); fd_ = -1; }
         return false;
     }
@@ -91,12 +93,7 @@ bool LcdDisplay::init() {
 void LcdDisplay::shutdown() {
     if (!initialised_) return;
 
-    // Leave a farewell message, then darken the backlight
-    clear();
-    print(0, "AquaFlow");
-    print(1, "Shutting down...");
-    delayMs(1500);
-
+    // Turn off the backlight
     backlightOn_ = false;
     expanderWrite(0x00);   // all bits low → backlight off
 
@@ -104,7 +101,7 @@ void LcdDisplay::shutdown() {
     fd_          = -1;
     initialised_ = false;
 
-    std::cout << "LcdDisplay shut down.\n";
+    Logger::info("LcdDisplay shut down.");
 }
 
 // ── Display API ───────────────────────────────────────────────────────────────
@@ -113,7 +110,6 @@ void LcdDisplay::clear() {
     if (!initialised_) return;
     writeCommand(LCD_CLEARDISPLAY);
     delayMs(2);
-    lastState_.clear();
 }
 
 void LcdDisplay::print(int row, const std::string& text) {
@@ -127,39 +123,6 @@ void LcdDisplay::print(int row, const std::string& text) {
     setCursor(row, 0);
     for (char c : line)
         writeData(static_cast<uint8_t>(c));
-}
-
-void LcdDisplay::showVolume(double volumeML) {
-    if (!initialised_) return;
-
-    // "Vol:  123.4 ml  " — always 16 chars after resize
-    std::ostringstream oss;
-    oss << "Vol: " << std::fixed << std::setprecision(1) << volumeML << " ml";
-
-    print(1, oss.str());
-}
-
-void LcdDisplay::showStatus(const std::string& state, double volumeML, int bottles) {
-    if (!initialised_) return;
-
-    // ── Row 0: state name ─────────────────────────────────────────────────────
-    // Skip redundant redraw if state hasn't changed (avoids I2C traffic)
-    if (state != lastState_) {
-        print(0, state);
-        lastState_ = state;
-    }
-
-    // ── Row 1: context-dependent information ──────────────────────────────────
-    if (state == "FILLING") {
-        // Row 1 will keep updating via showVolume() every timer tick —
-        // just prime it once here with the current reading
-        showVolume(volumeML);
-    } else {
-        // IDLE / DONE / WAITING: show cumulative bottle count
-        std::ostringstream oss;
-        oss << "Bottles: " << bottles;
-        print(1, oss.str());
-    }
 }
 
 // ── HD44780 low-level helpers ─────────────────────────────────────────────────
@@ -198,3 +161,9 @@ void LcdDisplay::expanderWrite(uint8_t data) {
     uint8_t byte = data | (backlightOn_ ? BACKLIGHT : NOBACKLIGHT);
     ::write(fd_, &byte, 1);
 }
+
+
+
+
+
+

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IHardwareDevice.h"
+#include "IFlowMeter.h"
 
 #include <atomic>
 #include <chrono>
@@ -27,7 +28,7 @@
  *
  * Inherits IHardwareDevice for SOLID Liskov substitutability.
  */
-class FlowMeter : public IHardwareDevice {
+class FlowMeter : public IHardwareDevice, public IFlowMeter {
 public:
     /**
      * @param chipNo      GPIO chip number (0 for Pi 1-4, 4 for Pi 5).
@@ -50,16 +51,13 @@ public:
     // ── Flow data API (safe to call from any thread) ─────────────────────────
 
     /** @brief Reset the pulse counter to zero (call before a new fill). */
-    void resetCount();
+    void resetCount() override;
 
     /** @brief Current pulse count since last reset. */
-    int getPulseCount() const;
+    int getPulseCount() const override;
 
     /** @brief Accumulated volume in millilitres since last reset. */
-    double getVolumeML() const;
-
-    /** @brief True when accumulated volume >= targetVolumeML. */
-    bool hasReachedTarget(double targetVolumeML) const;
+    double getVolumeML() const override;
 
 private:
     void setupGpio();
