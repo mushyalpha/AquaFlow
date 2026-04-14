@@ -16,10 +16,10 @@
   - *Note: `PumpController`: logging via `Logger`; responsibility = pump GPIO control.*
 
 ### O - Open/Closed Principle
-- [ ] **Base classes exist that can be extended without modification.** e.g., `IHardwareDevice` as the base - new sensors should be addable by inheritance, not by editing existing classes.
-- [ ] **Check `IHardwareDevice.h`** - does it provide a solid enough base that `FlowMeter`, `PumpController` etc. inherit from it without modifying the base?
-- [ ] **Use inheritance + virtual functions** to add functionality (e.g., a future `4-channel ADC` class extends a base `ADC` class).
-- [ ] **Document your inheritance hierarchy** - show it in a UML diagram.
+- [x] **Base classes exist that can be extended without modification.** e.g., `IHardwareDevice` as the base - new sensors should be addable by inheritance, not by editing existing classes.
+- [x] **Check `IHardwareDevice.h`** - does it provide a solid enough base that `FlowMeter`, `PumpController` etc. inherit from it without modifying the base?
+- [x] **Use inheritance + virtual functions** to add functionality (e.g., a future `4-channel ADC` class extends a base `ADC` class).
+- [x] **Document your inheritance hierarchy** - show it in a UML diagram.
   - *Status note (2026-04-14): `IHardwareDevice` is used by `PumpController`, `FlowMeter`, `GestureSensor`, and `LcdDisplay`; behavioral interfaces (`IProximitySensor`, `IPump`, `IFlowMeter`) are now consumed by `FillingController`; UML diagram added in `docs/architecture.md`.*
 
 ### L - Liskov Substitution Principle
@@ -34,9 +34,9 @@
 - [ ] **Verify** that no single class is being used as a catch-all for unrelated data.
 
 ### D - Dependency Inversion Principle
-- [ ] **Decision documented:** Professor explicitly said DIP is hard in C++ and is optional - but your **choice must be documented** (in README/docs) explaining why you did or didn't apply it.
-- [ ] **(Optional, high marks):** If attempting DIP, use C++ templates to decouple high-level logic from low-level hardware drivers so either can be swapped independently.
-- [ ] **At minimum:** ensure high-level modules (`FillingController`) depend on **abstractions** (`IHardwareDevice`), not concrete classes directly.
+- [x] **Decision documented:** Professor explicitly said DIP is hard in C++ and is optional - but your **choice must be documented** (in README/docs) explaining why you did or didn't apply it.
+- [x] **(Optional, high marks):** If attempting DIP, use C++ templates to decouple high-level logic from low-level hardware drivers so either can be swapped independently. *(Note: Achieved via runtime interfaces instead of templates, documented ADR).*
+- [x] **At minimum:** ensure high-level modules (`FillingController`) depend on **abstractions** (`IHardwareDevice` / `IPump`), not concrete classes directly.
 
 ---
 
