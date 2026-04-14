@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IHardwareDevice.h"
+#include "IPump.h"
 
 #include <memory>
 #include <string>
@@ -18,7 +19,7 @@
  * Relay mode (active-LOW): pass DriveMode::RELAY_ACTIVE_LOW
  * Transistor mode:         pass DriveMode::TRANSISTOR_ACTIVE_HIGH
  */
-class PumpController : public IHardwareDevice {
+class PumpController : public IHardwareDevice, public IPump {
 public:
     enum class DriveMode {
         RELAY_ACTIVE_LOW,
@@ -37,13 +38,13 @@ public:
     void shutdown() override;
 
     /** @brief Turn the pump ON. */
-    void turnOn();
+    void turnOn() override;
 
     /** @brief Turn the pump OFF. */
-    void turnOff();
+    void turnOff() override;
 
     /** @brief True while the pump is running. */
-    bool isRunning() const;
+    bool isRunning() const override;
 
 private:
     DriveMode mode_;
