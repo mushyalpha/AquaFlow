@@ -1,9 +1,9 @@
 #ifndef FILLINGCONTROLLER_H
 #define FILLINGCONTROLLER_H
 
-#include "hardware/GestureSensor.h"
-#include "hardware/PumpController.h"
-#include "hardware/FlowMeter.h"
+#include "IProximitySensor.h"
+#include "IPump.h"
+#include "IFlowMeter.h"
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -27,25 +27,25 @@ enum class SystemState {
 /**
  * @brief Main state machine that orchestrates the filling cycle.
  *
- * Cup detection is now event-driven: GestureSensor fires a proximity
+ * Cup detection is now event-driven: IProximitySensor fires a proximity
  * callback which sets a thread-safe flag.  tick() reads that flag on
  * each timer cycle — no polling, no distance measurements.
  *
- * The FillingController depends on abstractions (IHardwareDevice),
- * not on raw GPIO — supporting Dependency Inversion (SOLID "D").
+ * The FillingController depends only on behavior abstractions
+ * (IProximitySensor, IPump, IFlowMeter), supporting OCP and DIP.
  */
 class FillingController {
 public:
     /**
-     * @param gestureSensor    Reference to the gesture/proximity sensor.
-     * @param pump             Reference to the pump controller.
-     * @param flowMeter        Reference to the flow meter.
+     * @param gestureSensor    Reference to a proximity/gesture source abstraction.
+     * @param pump             Reference to a pump actuator abstraction.
+     * @param flowMeter        Reference to a flow measurement abstraction.
      * @param holdTimeSeconds  How long proximity must be held to confirm a cup.
      * @param targetVolumeML   Target fill volume in millilitres.
      */
-    FillingController(GestureSensor& gestureSensor,
-                      PumpController& pump,
-                      FlowMeter&      flowMeter,
+    FillingController(IProximitySensor& gestureSensor,
+                      IPump&           pump,
+                      IFlowMeter&      flowMeter,
                       int             holdTimeSeconds,
                       double          targetVolumeML);
 
@@ -89,9 +89,9 @@ public:
 
 private:
     // Hardware references
-    GestureSensor& gestureSensor_;
-    PumpController& pump_;
-    FlowMeter& flowMeter_;
+    IProximitySensor& gestureSensor_;
+    IPump& pump_;
+    IFlowMeter& flowMeter_;
 
     // Settings
     int    holdTimeSeconds_;
@@ -103,12 +103,12 @@ private:
     int bottleCount_;
 
     /**
-     * @brief Thread-safe flag set by the GestureSensor proximity callback.
+     * @brief Thread-safe flag set by the IProximitySensor proximity callback.
      *
      * true  = cup/bottle is currently detected in range
      * false = no cup detected
      *
-     * Written from the GestureSensor worker thread, read from the Timer
+     * Written from the sensor worker thread, read from the Timer
      * callback thread — std::atomic ensures no data race.
      */
     std::atomic<bool> bottlePresent_{false};

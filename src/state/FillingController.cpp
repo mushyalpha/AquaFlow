@@ -1,15 +1,14 @@
 #include "state/FillingController.h"
-#include "utils/Logger.h"
 
-#include <cstdio>  // snprintf — stack-allocated formatting, no heap
+#include <chrono>
 
 using Clock = std::chrono::steady_clock;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-FillingController::FillingController(GestureSensor& gestureSensor,
-                                     PumpController& pump,
-                                     FlowMeter&      flowMeter,
+FillingController::FillingController(IProximitySensor& gestureSensor,
+                                     IPump&           pump,
+                                     IFlowMeter&      flowMeter,
                                      int             holdTimeSeconds,
                                      double          targetVolumeML)
     : gestureSensor_(gestureSensor),
@@ -22,8 +21,8 @@ FillingController::FillingController(GestureSensor& gestureSensor,
       bottleCount_(0),
       monitorCallback_(nullptr)
 {
-    // Register proximity callback on the GestureSensor.
-    // Called from the GestureSensor worker thread on proximity state change.
+    // Register proximity callback on the sensor abstraction.
+    // Called from the sensor worker thread on proximity state change.
     // Callback is intentionally minimal: release-store only — no I/O, no blocking.
     // memory_order_release pairs with the acquire-load in tick() to ensure the
     // stored value is visible to the Timer thread before it reads it.
@@ -48,7 +47,6 @@ void FillingController::tick() {
         if (bottlePresent_.load(std::memory_order_acquire)) {
             holdStartTime_ = Clock::now();
             state_ = SystemState::CONFIRMATION;
-            Logger::info("Cup detected! Starting confirmation timer...");  // transition log
         }
         break;
     }
@@ -57,7 +55,6 @@ void FillingController::tick() {
     case SystemState::CONFIRMATION: {
         if (!bottlePresent_.load(std::memory_order_acquire)) {
             // Cup removed before timer expired — reset
-            Logger::info("Cup removed before confirmation - resetting.");   // transition log
             state_ = SystemState::WAITING;
             break;
         }
@@ -67,29 +64,18 @@ void FillingController::tick() {
             flowMeter_.resetCount();
             pump_.turnOn();
             state_ = SystemState::FILLING;
-            char buf[48];
-            snprintf(buf, sizeof(buf), "Cup confirmed! Filling to %d ml",
-                     static_cast<int>(targetVolumeML_));
-            Logger::info(buf);                                              // transition log
         }
-        // No per-tick log in CONFIRMATION — logs only on state transitions
         break;
     }
 
     // ── FILLING: pump running, counting flow pulses ───────────────────────────
     case SystemState::FILLING: {
-        if (flowMeter_.hasReachedTarget(targetVolumeML_)) {
-            double currentML = flowMeter_.getVolumeML();
+        double currentML = flowMeter_.getVolumeML();
+        if (currentML >= targetVolumeML_) {
             pump_.turnOff();
             bottleCount_++;
             state_ = SystemState::FILL_COMPLETE;
-            char buf[64];
-            snprintf(buf, sizeof(buf),
-                     "Target reached! Dispensed %.1f ml. Bottles filled: %d",
-                     currentML, bottleCount_);
-            Logger::info(buf);                                              // transition log
         }
-        // No per-tick log in FILLING — volume visible via monitorCallback_ below
         break;
     }
 
@@ -97,7 +83,6 @@ void FillingController::tick() {
     case SystemState::FILL_COMPLETE: {
         flowMeter_.resetCount();
         state_ = SystemState::WAITING;
-        Logger::info("Fill complete. Waiting for next cup...");             // transition log
         break;
     }
     }
