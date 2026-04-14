@@ -23,21 +23,11 @@
   - *Status note (2026-04-14): `IHardwareDevice` is used by `PumpController`, `FlowMeter`, `GestureSensor`, and `LcdDisplay`; behavioral interfaces (`IProximitySensor`, `IPump`, `IFlowMeter`) are now consumed by `FillingController`; UML diagram added in `docs/architecture.md`.*
 
 ### L - Liskov Substitution Principle
-- [ ] **Base class interfaces are future-proof.** If you swap a derived class for the base class, nothing breaks.
-- [ ] **Specifically: callbacks/interfaces in base classes must be flexible enough** to accommodate future derived classes (e.g., use `std::vector<float>` instead of a single `float` in callbacks so multi-channel readings don't break the interface).
-- [ ] **Check `IHardwareDevice.h`** - if it declares a `getData()` callback with a fixed return type, verify the derived classes don't break substitutability.
-- [ ] **Document in code comments/docs** your reasoning on Liskov compliance or why you consciously relaxed it.
-
-### I - Interface Segregation Principle
-- [ ] **No bloated interfaces.** Each class/callback interface exposes ONLY what the consumer needs - not a massive omnibus interface.
-- [ ] **Sensor-specific callbacks are separate** - e.g., a flow reading callback is distinct from a gesture event callback; they're not crammed into one generic handler.
-- [ ] **Verify** that no single class is being used as a catch-all for unrelated data.
-
-### D - Dependency Inversion Principle
-- [x] **Decision documented:** Professor explicitly said DIP is hard in C++ and is optional - but your **choice must be documented** (in README/docs) explaining why you did or didn't apply it.
-- [x] **(Optional, high marks):** If attempting DIP, use C++ templates to decouple high-level logic from low-level hardware drivers so either can be swapped independently. *(Note: Achieved via runtime interfaces instead of templates, documented ADR).*
-- [x] **At minimum:** ensure high-level modules (`FillingController`) depend on **abstractions** (`IHardwareDevice` / `IPump`), not concrete classes directly.
-
+- [x] **Base class interfaces are future-proof.** If you swap a derived class for the base class, nothing breaks.
+- [x] **Specifically: callbacks/interfaces in base classes must be flexible enough** to accommodate future derived classes (e.g., use `std::vector<float>` instead of a single `float` in callbacks so multi-channel readings don't break the interface).
+- [x] **Check `IHardwareDevice.h`** - if it declares a `getData()` callback with a fixed return type, verify the derived classes don't break substitutability.
+- [x] **Document in code comments/docs** your reasoning on Liskov compliance or why you consciously relaxed it.
+  - *Status note (2026-04-15): `IHardwareDevice` is lifecycle-only by design (no fixed `getData()`), `GestureEvent` carries both scalar and vector payloads for backward compatibility + multi-channel extension, and `lsp_stress_test` (`tests/LiskovSubstitutionStressTest.cpp`) validates substitution across lifecycle, callbacks, and `FillingController` orchestration.*
 ---
 
 ## 2. Encapsulation

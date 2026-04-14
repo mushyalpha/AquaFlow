@@ -144,14 +144,20 @@ void GestureSensor::worker() {
             if (currentlyTriggered && !isTriggered) {
                 isTriggered = true;
                 if (eventCallback_) {
-                    eventCallback_({ProximityState::PROXIMITY_TRIGGERED, GestureDir::NONE, prox});
+                    eventCallback_({ProximityState::PROXIMITY_TRIGGERED,
+                                    GestureDir::NONE,
+                                    prox,
+                                    {static_cast<float>(prox)}});
                 }
             } else if (!currentlyTriggered && isTriggered) {
                 int hysteresis_lower = (threshold_ - 20 >= 0) ? (threshold_ - 20) : 0;
                 if (prox < hysteresis_lower) {
                     isTriggered = false;
                     if (eventCallback_) {
-                        eventCallback_({ProximityState::PROXIMITY_CLEARED, GestureDir::NONE, prox});
+                        eventCallback_({ProximityState::PROXIMITY_CLEARED,
+                                        GestureDir::NONE,
+                                        prox,
+                                        {static_cast<float>(prox)}});
                     }
                 }
             }
@@ -205,7 +211,10 @@ void GestureSensor::worker() {
                     }
 
                     if (dir != GestureDir::NONE && eventCallback_) {
-                        eventCallback_({ProximityState::NONE, dir, prox});
+                        eventCallback_({ProximityState::NONE,
+                                        dir,
+                                        prox,
+                                        {static_cast<float>(prox)}});
                     }
                 }
 

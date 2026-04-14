@@ -8,6 +8,14 @@
  * implements this interface. This supports:
  *   - Liskov Substitution (SOLID "L") — mock objects can replace real hardware
  *   - A stable lifecycle contract (`init` / `shutdown`) shared across devices
+ *
+ * LSP note:
+ * This base interface intentionally contains only lifecycle operations.
+ * It does not define a fixed getData() payload because AquaFlow devices
+ * expose different data shapes (pump state, pulse counts, gesture events, text output).
+ * Forcing one common return type here would push narrowing conversions into derived
+ * classes and violate substitutability. Device-specific data contracts live in
+ * focused interfaces such as IFlowMeter, IPump, and IProximitySensor.
  */
 class IHardwareDevice {
 public:
