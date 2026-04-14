@@ -4,19 +4,28 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
-#include <csignal>
-#include <atomic>
+#include <pthread.h>
+#include <signal.h>
 
 // ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
-static std::atomic<bool> keepRunning(true);
-
-void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping...\n";
-    keepRunning = false;
-}
-
 int main() {
-    std::signal(SIGINT, signalHandler);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+
+    auto waitForStop = [&sigset](std::chrono::milliseconds timeout) {
+        timespec ts{};
+        ts.tv_sec = timeout.count() / 1000;
+        ts.tv_nsec = static_cast<long>((timeout.count() % 1000) * 1000000);
+        int sig = sigtimedwait(&sigset, nullptr, &ts);
+        if (sig == SIGINT || sig == SIGTERM) {
+            std::cout << "\n[Signal " << sig << "] Stopping...\n";
+            return true;
+        }
+        return false;
+    };
 
     std::cout << "=== Pump Integration Test ===\n";
     std::cout << "Using libgpiod on Chip " << GPIO_CHIP_NO << ", Pin " << PUMP_PIN << "\n";
@@ -31,18 +40,23 @@ int main() {
 
     std::cout << "Starting 3-cycle test...\n";
 
-    for (int i = 0; i < 3 && keepRunning; ++i) {
+    bool stopRequested = false;
+    for (int i = 0; i < 3 && !stopRequested; ++i) {
         std::cout << "Cycle " << i + 1 << ": PUMP ON\n";
         pump.turnOn();
         // Since this is just a sequential integration test script, sleep_for is acceptable here
         // (the main application uses event-driven state machines, not sleeps)
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-
-        if (!keepRunning) break;
+        if (waitForStop(std::chrono::seconds(2))) {
+            stopRequested = true;
+            break;
+        }
 
         std::cout << "Cycle " << i + 1 << ": PUMP OFF\n";
         pump.turnOff();
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (waitForStop(std::chrono::seconds(2))) {
+            stopRequested = true;
+            break;
+        }
     }
 
     // Ensure it's off before exit

@@ -5,21 +5,31 @@
 
 #include <atomic>
 #include <chrono>
-#include <csignal>
 #include <iostream>
 #include <iomanip>
+#include <pthread.h>
+#include <signal.h>
 #include <thread>
 
 // ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
-static std::atomic<bool> keepRunning(true);
-
-void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping...\n";
-    keepRunning = false;
-}
-
 int main() {
-    std::signal(SIGINT, signalHandler);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+
+    auto waitForStop = [&sigset](std::chrono::milliseconds timeout) {
+        timespec ts{};
+        ts.tv_sec = timeout.count() / 1000;
+        ts.tv_nsec = static_cast<long>((timeout.count() % 1000) * 1000000);
+        int sig = sigtimedwait(&sigset, nullptr, &ts);
+        if (sig == SIGINT || sig == SIGTERM) {
+            std::cout << "\n[Signal " << sig << "] Stopping...\n";
+            return true;
+        }
+        return false;
+    };
 
     std::cout << "=== Touchless Dispenser Gesture Terminal Test ===\n";
     std::cout << "ML per pulse  : " << ML_PER_PULSE << "\n\n";
@@ -116,8 +126,10 @@ int main() {
     std::cout << "[-] Current Size: MEDIUM (400ml).\n";
 
     // ── Live volume loop ──────────────────────────────────────────────────────
-    while (keepRunning) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    while (true) {
+        if (waitForStop(std::chrono::milliseconds(200))) {
+            break;
+        }
 
         if (appState == AppState::DISPENSING) {
             double vol = flow.getVolumeML();

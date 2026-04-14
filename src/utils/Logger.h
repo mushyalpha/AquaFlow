@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <mutex>
 #include <iostream>
 
 /**
@@ -23,5 +22,5 @@ public:
     static void error(const std::string& msg);
 
 private:
-    static std::mutex mutex_;
+    static void writeLine(std::ostream& out, const char* level, const std::string& msg);
 };

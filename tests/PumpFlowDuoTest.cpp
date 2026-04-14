@@ -2,23 +2,32 @@
 #include "hardware/PumpController.h"
 #include "hardware/FlowMeter.h"
 
-#include <atomic>
 #include <chrono>
-#include <csignal>
 #include <iomanip>
 #include <iostream>
+#include <pthread.h>
+#include <signal.h>
 #include <thread>
 
 // ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
-static std::atomic<bool> keepRunning(true);
-
-void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping pump...\n";
-    keepRunning = false;
-}
-
 int main() {
-    std::signal(SIGINT, signalHandler);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+
+    auto waitForStop = [&sigset](std::chrono::milliseconds timeout) {
+        timespec ts{};
+        ts.tv_sec = timeout.count() / 1000;
+        ts.tv_nsec = static_cast<long>((timeout.count() % 1000) * 1000000);
+        int sig = sigtimedwait(&sigset, nullptr, &ts);
+        if (sig == SIGINT || sig == SIGTERM) {
+            std::cout << "\n[Signal " << sig << "] Stopping pump...\n";
+            return true;
+        }
+        return false;
+    };
 
     std::cout << "=== Pump + Flow Meter Calibration Test ===\n";
     std::cout << "Current ml/pulse : " << ML_PER_PULSE << "\n";
@@ -35,8 +44,10 @@ int main() {
     std::cout << "Pump ON...\n\n";
 
     // Run until Ctrl+C — no auto-stop
-    while (keepRunning) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    while (true) {
+        if (waitForStop(std::chrono::milliseconds(500))) {
+            break;
+        }
 
         int    pulses = flow.getPulseCount();
         double vol    = flow.getVolumeML();
@@ -76,4 +87,3 @@ int main() {
     pump.shutdown();
     return 0;
 }
-
