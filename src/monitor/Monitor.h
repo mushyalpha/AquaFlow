@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <functional>
 
 /**
  * @brief Receives state-change events from FillingController and
@@ -13,13 +12,6 @@
  */
 class Monitor {
 public:
-    using StateCallback = std::function<void(const std::string& state,
-                                             double volumeML,
-                                             int    bottleCount)>;
-
-    /** @brief Register an external subscriber for state events. */
-    void registerCallback(StateCallback cb) { callback_ = std::move(cb); }
-
     /**
      * @brief Called by FillingController on every tick.
      * @param state       Current state name (e.g. "FILLING").
@@ -29,5 +21,5 @@ public:
     void onStateChange(const std::string& state, double volumeML, int bottleCount);
 
 private:
-    StateCallback callback_;
+    std::string lastState_ = "";
 };
