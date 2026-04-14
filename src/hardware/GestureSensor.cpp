@@ -69,9 +69,11 @@ bool GestureSensor::init() {
 
         running_ = true;
 
-        // ── RTES: create a timerfd for the poll interval instead of sleep ────
-        // blocking read() on a timerfd is a proper kernel sleep — zero CPU,
-        // unlike std::this_thread::sleep_for which may busy-wait internally.
+        // ── RTES: timerfd-driven I2C sampling ──────────────────────────────────
+        // The APDS-9960 INT pin is not wired; instead a timerfd fires every
+        // POLL_INTERVAL_MS. The worker thread blocks on ::read(timerFd_) — a
+        // true kernel sleep consuming zero CPU — then checks GSTATUS on wake
+        // to confirm data validity before reading proximity / gesture FIFOs.
         timerFd_ = timerfd_create(CLOCK_MONOTONIC, 0);
         if (timerFd_ < 0)
             throw std::runtime_error("GestureSensor: timerfd_create failed");
@@ -212,9 +214,10 @@ void GestureSensor::worker() {
             if (errorCallback_) errorCallback_(e.what());
         }
 
-        // ── RTES-compliant blocking wait ──────────────────────────────────────
-        // Block on timerfd instead of sleep_for. The kernel wakes this thread
-        // at exactly POLL_INTERVAL_MS boundaries, consuming zero CPU while idle.
+        // ── RTES-compliant blocking wait (timerfd) ───────────────────────────
+        // Thread blocks here until the kernel fires the timerfd at the next
+        // POLL_INTERVAL_MS boundary — zero CPU while idle, no sleep() call.
+        // On wake, I2C registers are read and GSTATUS checked for data validity.
         // If timerFd_ was closed by shutdown(), read() returns -1 → loop exits.
         uint64_t expirations = 0;
         if (::read(timerFd_, &expirations, sizeof(expirations)) < 0) {

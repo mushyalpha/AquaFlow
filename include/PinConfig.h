@@ -12,11 +12,11 @@ constexpr int PUMP_PIN = 18;   // GPIO18 (BCM)
 constexpr int FLOW_PIN = 17;   // GPIO17 — BCM17 — Physical Pin 11
 
 // ─── Timing Settings ─────────────────────────────────────────────────────────
-// NOTE: Set HOLD_TIME_SECONDS back to 5 for the real demo.
+// NOTE: Set HOLD_TIME_SECONDS back to 3 for production use.
 // Timing requirement: system must detect cup and begin filling within 50 ms
 // of a proximity event. The GestureSensor polls at 50 ms; the Timer fires
 // every LOOP_INTERVAL_MS for state-machine ticks.
-constexpr int HOLD_TIME_SECONDS  = 3;     // cup must be held steady (seconds)
+constexpr int HOLD_TIME_SECONDS  = 1;     // cup must be held steady (seconds)
 constexpr int LOOP_INTERVAL_MS   = 100;   // state-machine tick interval (ms)
 
 // ─── Flow Settings ───────────────────────────────────────────────────────────
