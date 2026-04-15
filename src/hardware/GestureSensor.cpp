@@ -164,9 +164,10 @@ bool GestureSensor::init() {
         writeRegister(APDS9960_GPENTH, 5);
 
         // GEXTH: gesture engine exit threshold (all photodiodes below this → exit).
-        // CircuitPython sets 30 (0x1E). Our old code and the Arduino library
-        // never wrote this register, leaving it at the power-on default of 0.
-        writeRegister(APDS9960_GEXTH, 30);
+        // CircuitPython sets 30 (0x1E) but this breaks us because GPENTH is 5.
+        // It causes the gesture engine to instantly abort if the hand is not close enough
+        // to immediately read >30. We revert this to 0 to match the Arduino library.
+        writeRegister(APDS9960_GEXTH, 0);
 
         // GPULSE: GPLEN=3 (32us), GPULSE=9 (10 pulses) → (3 << 6) | 9 = 0xC9
         // Arduino library default. More IR energy = better detection range.
