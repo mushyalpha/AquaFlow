@@ -1,24 +1,33 @@
 #include "PinConfig.h"
 #include "hardware/LcdDisplay.h"
 
-#include <atomic>
 #include <chrono>
-#include <csignal>
 #include <iomanip>
 #include <iostream>
+#include <pthread.h>
+#include <signal.h>
 #include <sstream>
 #include <thread>
 
 // ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
-static std::atomic<bool> keepRunning(true);
-
-void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping...\n";
-    keepRunning = false;
-}
-
 int main() {
-    std::signal(SIGINT, signalHandler);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+
+    auto waitForStop = [&sigset](std::chrono::milliseconds timeout) {
+        timespec ts{};
+        ts.tv_sec = timeout.count() / 1000;
+        ts.tv_nsec = static_cast<long>((timeout.count() % 1000) * 1000000);
+        int sig = sigtimedwait(&sigset, nullptr, &ts);
+        if (sig == SIGINT || sig == SIGTERM) {
+            std::cout << "\n[Signal " << sig << "] Stopping...\n";
+            return true;
+        }
+        return false;
+    };
 
     std::cout << "=== LCD Integration Test ===\n";
     std::cout << "Bus /dev/i2c-" << LCD_I2C_BUS
@@ -41,21 +50,19 @@ int main() {
     // 1. Splash screen
     lcd.print(0, "   AquaFlow    ");
     lcd.print(1, "  Water Disp.  ");
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    if (!keepRunning) goto cleanup;
+    if (waitForStop(std::chrono::seconds(2))) goto cleanup;
 
     // 2. IDLE state
     lcd.showStatus("IDLE", 0.0, 0);
     std::cout << "Showing: IDLE / Bottles: 0\n";
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    if (!keepRunning) goto cleanup;
+    if (waitForStop(std::chrono::seconds(2))) goto cleanup;
 
     // 3. FILLING — simulate real-time volume ticking up (as flow meter would)
     lcd.showStatus("FILLING", 0.0, 1);
     std::cout << "Simulating real-time volume fill...\n";
     {
         double vol = 0.0;
-        while (keepRunning && vol <= 500.0) {
+        while (vol <= 500.0) {
             lcd.showVolume(vol);
 
             std::ostringstream oss;
@@ -63,22 +70,20 @@ int main() {
             std::cout << "\r  " << oss.str() << std::flush;
 
             vol += 25.0;
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            if (waitForStop(std::chrono::milliseconds(500))) goto cleanup;
         }
         std::cout << "\n";
     }
-    if (!keepRunning) goto cleanup;
 
     // 4. DONE state
     lcd.showStatus("DONE", 500.0, 1);
     std::cout << "Showing: DONE / Bottles: 1\n";
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    if (!keepRunning) goto cleanup;
+    if (waitForStop(std::chrono::seconds(2))) goto cleanup;
 
     // 5. Back to IDLE, bottle count incremented
     lcd.showStatus("IDLE", 0.0, 1);
     std::cout << "Showing: IDLE / Bottles: 1\n";
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    (void)waitForStop(std::chrono::seconds(2));
 
 cleanup:
     lcd.shutdown();

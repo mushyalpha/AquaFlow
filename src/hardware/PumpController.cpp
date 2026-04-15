@@ -19,7 +19,7 @@ bool PumpController::init() {
 
     try {
         const std::string chipPath = "/dev/gpiochip" + std::to_string(chipNo_);
-        chip_ = std::make_shared<gpiod::chip>(chipPath);
+        chip_ = gpiod::chip(chipPath);
 
         // Configure the pump pin as output, idle = pump OFF
         gpiod::line_config lineCfg;
@@ -32,7 +32,7 @@ bool PumpController::init() {
         auto builder = chip_->prepare_request();
         builder.set_consumer("pump_controller");
         builder.set_line_config(lineCfg);
-        request_ = std::make_shared<gpiod::line_request>(builder.do_request());
+        request_ = builder.do_request();
 
         running_     = false;
         initialised_ = true;
@@ -50,15 +50,14 @@ bool PumpController::init() {
 }
 
 void PumpController::shutdown() {
-    if (!initialised_) return;
-    // Ensure pump is off before releasing GPIO
-    if (request_) {
+    if (initialised_ && request_) {
+        // Ensure pump is off before releasing GPIO
         request_->set_value(pumpPin_, offValue());
     }
     running_     = false;
     initialised_ = false;
-    request_.reset();
-    chip_.reset();
+    if (request_) request_.reset();
+    if (chip_) chip_.reset();
     Logger::info("PumpController shut down (pump OFF).");
 }
 

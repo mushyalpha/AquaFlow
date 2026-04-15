@@ -1,8 +1,9 @@
 #pragma once
 
 #include "IHardwareDevice.h"
+#include "IPump.h"
 
-#include <memory>
+#include <optional>
 #include <string>
 
 #include <gpiod.hpp>
@@ -18,7 +19,7 @@
  * Relay mode (active-LOW): pass DriveMode::RELAY_ACTIVE_LOW
  * Transistor mode:         pass DriveMode::TRANSISTOR_ACTIVE_HIGH
  */
-class PumpController : public IHardwareDevice {
+class PumpController : public IHardwareDevice, public IPump {
 public:
     enum class DriveMode {
         RELAY_ACTIVE_LOW,
@@ -33,17 +34,22 @@ public:
     PumpController(unsigned int chipNo, unsigned int pumpPin, DriveMode mode = DriveMode::TRANSISTOR_ACTIVE_HIGH);
     ~PumpController() override;
 
+    PumpController(const PumpController&) = delete;
+    PumpController& operator=(const PumpController&) = delete;
+    PumpController(PumpController&&) = delete;
+    PumpController& operator=(PumpController&&) = delete;
+
     bool init() override;
     void shutdown() override;
 
     /** @brief Turn the pump ON. */
-    void turnOn();
+    void turnOn() override;
 
     /** @brief Turn the pump OFF. */
-    void turnOff();
+    void turnOff() override;
 
     /** @brief True while the pump is running. */
-    bool isRunning() const;
+    bool isRunning() const override;
 
 #ifdef AQUAFLOW_TESTING
     /** @brief Enable a hardware-free simulation mode for unit tests. */
@@ -61,6 +67,6 @@ private:
     bool running_    = false;
     bool initialised_= false;
 
-    std::shared_ptr<gpiod::chip>         chip_;
-    std::shared_ptr<gpiod::line_request> request_;
+    std::optional<gpiod::chip>         chip_;
+    std::optional<gpiod::line_request> request_;
 };

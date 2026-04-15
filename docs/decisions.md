@@ -119,11 +119,19 @@ A master log of technical bottlenecks and the resolutions implemented for the Aq
 
 ---
 
-## Decision 12: Architectural Principles & Multithreading (SOLID)
+## Decision 12: Dependency Inversion for FillingController via Behavioral Interfaces
 
-- **Context:** Deciding the software constraints and architecture map mapping logic state to hardware feedback.
-- **Decision:** **Strictly enforce SOLID principles specifically Dependency Inversion (D), Liskov Substitution (L), and Open-Closed Principle (O) alongside an asynchronous event-driven layout.**
-- **Rationale & Applied Implementations:**
-  1. **Dependency Inversion + Liskov Substitution:** The state machine (`FillingController`) accesses hardware strictly through the abstract `IHardwareDevice` interfaces. This abstraction means we can freely swap real `PumpController` nodes with testing stub mocks dynamically without altering the controller's logic (Polymorphism).
-  2. **Open-Closed Principle:** Display outputs are decoupled entirely via asynchronous **Observer Callbacks**. Instead of hardcoding `LcdDisplay` into the root controller, the controller simply broadcasts events (`onStateChange`) via the generic `Monitor` callback structure. This allows UI layers to alter significantly (Open for extension) without ever touching core logic (Closed for modification).
-  3. **Event-Driven Threading Tradeoffs:** Rather than globally busy-polling GPIO ports (which uses 100% CPU latency overheads), `libgpiod` Edge Event workers and `sys/timerfd.h` were bound to isolate independent threads. The tradeoff is memory complexity with explicit thread execution tracking (`std::atomic<bool> pulseCount_`), but the system gains robust real-time sub-millisecond execution matching the stringent A1 criteria.
+- **Context:** `FillingController` previously depended on concrete classes (`GestureSensor`, `PumpController`, `FlowMeter`) to call behavior methods (`registerEventCallback`, `turnOn`, `getVolumeML`). This limited Open/Closed compliance at the orchestration layer.
+- **Decision:** **Introduce focused behavioral interfaces** in `include/`:
+  - `IProximitySensor`
+  - `IPump`
+  - `IFlowMeter`
+  and make `FillingController` depend on these abstractions only.
+- **Rationale:**
+  - This removes concrete driver coupling from high-level logic and improves OCP/DIP evidence for assessment.
+  - It keeps interface count minimal (no broad interface explosion), while still covering domain behavior needed by the state machine.
+  - We considered a template-based static polymorphism variant for zero virtual dispatch overhead, but chose runtime interfaces for maintainability and clearer design communication. At a 100 ms control period, virtual dispatch overhead is not operationally significant.
+- **Applied Implementations:**
+  1. **Dependency Inversion + Liskov Substitution:** The state machine (`FillingController`) accesses hardware strictly through the abstract `IHardwareDevice` interfaces, allowing real drivers to be freely swapped for test mocks without altering controller logic.
+  2. **Open-Closed Principle:** Display outputs are decoupled entirely via asynchronous **Observer Callbacks**. The controller broadcasts events (`onStateChange`) via `Monitor`, keeping UI open for extension without touching core logic.
+  3. **Event-Driven Threading:** `libgpiod` Edge Event workers and `sys/timerfd.h` isolate independent threads. The system gains robust real-time sub-millisecond execution, with thread safety managed via `std::atomic<bool>` guards.

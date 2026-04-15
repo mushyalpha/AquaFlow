@@ -1,6 +1,7 @@
 #include "hardware/LcdDisplay.h"
 #include "utils/Logger.h"
 
+#include <array>
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
@@ -12,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include "utils/Logger.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -77,33 +79,34 @@ bool LcdDisplay::init() {
         backlightOn_ = true;
         initialised_ = true;
 
-        std::ostringstream log;
-        log << "LcdDisplay initialised (bus=" << busNo_
-            << ", addr=0x" << std::hex << addr_ << std::dec << ")";
-        Logger::info(log.str());
+        std::ostringstream addrHex;
+        addrHex << std::hex << addr_;
+        Logger::info("LcdDisplay initialised (bus=" + std::to_string(busNo_) +
+                     ", addr=0x" + addrHex.str() + ")");
         return true;
 
     } catch (const std::exception& e) {
-        Logger::error("LcdDisplay::init() error: " + std::string(e.what()));
+        Logger::error(std::string("LcdDisplay::init() error: ") + e.what());
         if (fd_ >= 0) { close(fd_); fd_ = -1; }
         return false;
     }
 }
 
 void LcdDisplay::shutdown() {
-    if (!initialised_) return;
+    try {
+        if (initialised_) {
+            // Turn off the backlight if it is still functionally connected
+            backlightOn_ = false;
+            expanderWrite(0x00);
+        }
+    } catch (const std::exception& e) {
+        Logger::warn("LcdDisplay shutdown error swallowed: " + std::string(e.what()));
+    }
 
-    // Leave a farewell message, then darken the backlight
-    clear();
-    print(0, "AquaFlow");
-    print(1, "Shutting down...");
-    delayMs(1500);
-
-    backlightOn_ = false;
-    expanderWrite(0x00);   // all bits low → backlight off
-
-    close(fd_);
-    fd_          = -1;
+    if (fd_ >= 0) {
+        close(fd_);
+        fd_ = -1;
+    }
     initialised_ = false;
 
     Logger::info("LcdDisplay shut down.");
@@ -113,54 +116,30 @@ void LcdDisplay::shutdown() {
 
 void LcdDisplay::clear() {
     if (!initialised_) return;
-    writeCommand(LCD_CLEARDISPLAY);
-    delayMs(2);
-    lastState_.clear();
+    try {
+        writeCommand(LCD_CLEARDISPLAY);
+        delayMs(2);
+    } catch (const std::exception& e) {
+        Logger::error("LcdDisplay transport fault (clear): " + std::string(e.what()));
+        initialised_ = false;
+    }
 }
 
 void LcdDisplay::print(int row, const std::string& text) {
     if (!initialised_) return;
 
-    // Pad or truncate to exactly 16 characters — overwrites previous content
-    // on that row without a full clear (no flicker)
-    std::string line = text;
-    line.resize(16, ' ');
+    try {
+        // Pad or truncate to exactly 16 characters — overwrites previous content
+        // on that row without a full clear (no flicker)
+        std::string line = text;
+        line.resize(16, ' ');
 
-    setCursor(row, 0);
-    for (char c : line)
-        writeData(static_cast<uint8_t>(c));
-}
-
-void LcdDisplay::showVolume(double volumeML) {
-    if (!initialised_) return;
-
-    // "Vol:  123.4 ml  " — always 16 chars after resize
-    std::ostringstream oss;
-    oss << "Vol: " << std::fixed << std::setprecision(1) << volumeML << " ml";
-
-    print(1, oss.str());
-}
-
-void LcdDisplay::showStatus(const std::string& state, double volumeML, int bottles) {
-    if (!initialised_) return;
-
-    // ── Row 0: state name ─────────────────────────────────────────────────────
-    // Skip redundant redraw if state hasn't changed (avoids I2C traffic)
-    if (state != lastState_) {
-        print(0, state);
-        lastState_ = state;
-    }
-
-    // ── Row 1: context-dependent information ──────────────────────────────────
-    if (state == "FILLING") {
-        // Row 1 will keep updating via showVolume() every timer tick —
-        // just prime it once here with the current reading
-        showVolume(volumeML);
-    } else {
-        // IDLE / DONE / WAITING: show cumulative bottle count
-        std::ostringstream oss;
-        oss << "Bottles: " << bottles;
-        print(1, oss.str());
+        setCursor(row, 0);
+        for (char c : line)
+            writeData(static_cast<uint8_t>(c));
+    } catch (const std::exception& e) {
+        Logger::error("LcdDisplay transport fault (print): " + std::string(e.what()));
+        initialised_ = false;
     }
 }
 
@@ -168,7 +147,7 @@ void LcdDisplay::showStatus(const std::string& state, double volumeML, int bottl
 
 void LcdDisplay::setCursor(int row, int col) {
     // DDRAM addresses: row 0 starts at 0x00, row 1 starts at 0x40
-    static const uint8_t rowOffsets[] = { 0x00, 0x40 };
+    static constexpr std::array<uint8_t, 2> rowOffsets = { 0x00, 0x40 };
     writeCommand(LCD_SETDDRAMADDR | (static_cast<uint8_t>(col) + rowOffsets[row & 0x01]));
 }
 
@@ -198,5 +177,13 @@ void LcdDisplay::pulseEnable(uint8_t data) {
 void LcdDisplay::expanderWrite(uint8_t data) {
     // OR in the backlight bit before sending to PCF8574T
     uint8_t byte = data | (backlightOn_ ? BACKLIGHT : NOBACKLIGHT);
-    ::write(fd_, &byte, 1);
+    if (::write(fd_, &byte, 1) != 1) {
+        throw std::runtime_error("I2C expander write failed");
+    }
 }
+
+
+
+
+
+

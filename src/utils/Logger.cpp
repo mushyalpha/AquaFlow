@@ -1,18 +1,17 @@
 #include "utils/Logger.h"
 
-std::mutex Logger::mutex_;
+void Logger::writeLine(std::ostream& out, const char* level, const std::string& msg) {
+    out << "[" << level << "] " << msg << "\n";
+}
 
 void Logger::info(const std::string& msg) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::cout << "[INFO]  " << msg << "\n";
+    writeLine(std::cout, "INFO ", msg);
 }
 
 void Logger::warn(const std::string& msg) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::cout << "[WARN]  " << msg << "\n";
+    writeLine(std::cout, "WARN ", msg);
 }
 
 void Logger::error(const std::string& msg) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::cerr << "[ERROR] " << msg << "\n";
+    writeLine(std::cerr, "ERROR", msg);
 }

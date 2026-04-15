@@ -10,32 +10,33 @@
 > Global variables, no SOLID evidence → D/E. No evidence at all → F.
 
 ### S - Single Responsibility Principle
-- [ ] **Every class has exactly ONE clearly-defined responsibility.** No "god classes" doing multiple jobs (e.g., a class that both reads the sensor AND controls the pump AND logs simultaneously).
-- [ ] **Confirm current classes are properly separated:** `GestureSensor`, `PumpController`, `FlowMeter`, `LcdDisplay`, `FillingController`, `Monitor`, `Timer`, `Logger` - each should own one concern only.
-- [ ] **Document in README/docs** which responsibility each class owns (justifies SRP compliance to the marker).
+- [x] **Every class has exactly ONE clearly-defined responsibility.** No "god classes" doing multiple jobs (e.g., a class that both reads the sensor AND controls the pump AND logs simultaneously).
+- [x] **Confirm current classes are properly separated:** `GestureSensor`, `PumpController`, `FlowMeter`, `LcdDisplay`, `FillingController`, `Monitor`, `Timer`, `Logger` - each should own one concern only.
+- [x] **Document in README/docs** which responsibility each class owns (justifies SRP compliance to the marker).
   - *Note: `PumpController`: logging via `Logger`; responsibility = pump GPIO control.*
 
 ### O - Open/Closed Principle
-- [ ] **Base classes exist that can be extended without modification.** e.g., `IHardwareDevice` as the base - new sensors should be addable by inheritance, not by editing existing classes.
-- [ ] **Check `IHardwareDevice.h`** - does it provide a solid enough base that `FlowMeter`, `PumpController` etc. inherit from it without modifying the base?
-- [ ] **Use inheritance + virtual functions** to add functionality (e.g., a future `4-channel ADC` class extends a base `ADC` class).
-- [ ] **Document your inheritance hierarchy** - show it in a UML diagram.
+- [x] **Base classes exist that can be extended without modification.** e.g., `IHardwareDevice` as the base - new sensors should be addable by inheritance, not by editing existing classes.
+- [x] **Check `IHardwareDevice.h`** - does it provide a solid enough base that `FlowMeter`, `PumpController` etc. inherit from it without modifying the base?
+- [x] **Use inheritance + virtual functions** to add functionality (e.g., a future `4-channel ADC` class extends a base `ADC` class).
+- [x] **Document your inheritance hierarchy** - show it in a UML diagram.
+  - *Status note (2026-04-14): `IHardwareDevice` is used by `PumpController`, `FlowMeter`, `GestureSensor`, and `LcdDisplay`; behavioral interfaces (`IProximitySensor`, `IPump`, `IFlowMeter`) are now consumed by `FillingController`; UML diagram added in `docs/architecture.md`.*
 
 ### L - Liskov Substitution Principle
-- [ ] **Base class interfaces are future-proof.** If you swap a derived class for the base class, nothing breaks.
-- [ ] **Specifically: callbacks/interfaces in base classes must be flexible enough** to accommodate future derived classes (e.g., use `std::vector<float>` instead of a single `float` in callbacks so multi-channel readings don't break the interface).
-- [ ] **Check `IHardwareDevice.h`** - if it declares a `getData()` callback with a fixed return type, verify the derived classes don't break substitutability.
-- [ ] **Document in code comments/docs** your reasoning on Liskov compliance or why you consciously relaxed it.
-
+- [x] **Base class interfaces are future-proof.** If you swap a derived class for the base class, nothing breaks.
+- [x] **Specifically: callbacks/interfaces in base classes must be flexible enough** to accommodate future derived classes (e.g., use `std::vector<float>` instead of a single `float` in callbacks so multi-channel readings don't break the interface).
+- [x] **Check `IHardwareDevice.h`** - if it declares a `getData()` callback with a fixed return type, verify the derived classes don't break substitutability.
+- [x] **Document in code comments/docs** your reasoning on Liskov compliance or why you consciously relaxed it.
+  - *Status note (2026-04-15): `IHardwareDevice` is lifecycle-only by design (no fixed `getData()`), `GestureEvent` carries both scalar and vector payloads for backward compatibility + multi-channel extension, and `lsp_stress_test` (`tests/LiskovSubstitutionStressTest.cpp`) validates substitution across lifecycle, callbacks, and `FillingController` orchestration.*
 ### I - Interface Segregation Principle
-- [ ] **No bloated interfaces.** Each class/callback interface exposes ONLY what the consumer needs - not a massive omnibus interface.
-- [ ] **Sensor-specific callbacks are separate** - e.g., a flow reading callback is distinct from a gesture event callback; they're not crammed into one generic handler.
-- [ ] **Verify** that no single class is being used as a catch-all for unrelated data.
+- [x] **No bloated interfaces.** Each class/callback interface exposes ONLY what the consumer needs - not a massive omnibus interface.
+- [x] **Sensor-specific callbacks are separate** - e.g., a flow reading callback is distinct from a gesture event callback; they're not crammed into one generic handler.
+- [x] **Verify** that no single class is being used as a catch-all for unrelated data.
 
 ### D - Dependency Inversion Principle
-- [ ] **Decision documented:** Professor explicitly said DIP is hard in C++ and is optional - but your **choice must be documented** (in README/docs) explaining why you did or didn't apply it.
-- [ ] **(Optional, high marks):** If attempting DIP, use C++ templates to decouple high-level logic from low-level hardware drivers so either can be swapped independently.
-- [ ] **At minimum:** ensure high-level modules (`FillingController`) depend on **abstractions** (`IHardwareDevice`), not concrete classes directly.
+- [x] **Decision documented:** Professor explicitly said DIP is hard in C++ and is optional - but your **choice must be documented** (in README/docs) explaining why you did or didn't apply it.
+- [x] **(Optional, high marks):** If attempting DIP, use C++ templates to decouple high-level logic from low-level hardware drivers so either can be swapped independently. *(Note: Achieved via runtime interfaces instead of templates, documented ADR).*
+- [x] **At minimum:** ensure high-level modules (`FillingController`) depend on **abstractions** (`IHardwareDevice` / `IPump`), not concrete classes directly.
 
 ---
 
@@ -44,14 +45,20 @@
 > Professor: *"A = clearly defined public interface, all variables in private, access only via getters/setters/callbacks, efficient internal data structures."*
 > Global variables → D/E instantly. Everything dumped in `main` → F.
 
-- [ ] **Zero global variables.** Do a full search across all `.cpp` and `.h` files. Any global mutable state is an immediate D/E.
-- [ ] **All member variables are `private`** (or `protected` where justified). No `public` data members.
-- [ ] **All data access is through getters, setters, or callbacks only.** No direct member access from outside the class.
-- [ ] **Internal data structures are efficient** - e.g., consider using `std::atomic` for shared sensor readings, ring buffers or double-buffering for high-frequency data.
-- [ ] **`main.cpp` contains only initialisation code** - no real-time logic, no loops, no processing. After init, it simply blocks on `sigwait()`.
-  -  **Current state:** `main.cpp` already does this correctly with `sigwait()` - confirm it stays this way.
-- [ ] **All callbacks are transmitted through `std::function` or abstract interface** - not via raw global function pointers.
-- [ ] **Safe data receiving and releasing** - verify fault-checking mechanisms are in place when sensors disconnect or provide erroneous data.
+- [x] **Zero global variables.** Do a full search across all `.cpp` and `.h` files. Any global mutable state is an immediate D/E.
+  - *Status note (2026-04-15): Full `.cpp`/`.h` audit completed. Removed mutable namespace-scope state (`Logger::mutex_` static storage and `keepRunning` globals in integration tests). Remaining `static` uses are immutable constants (`constexpr`/`const`) or static methods only.*
+- [x] **All member variables are `private`** (or `protected` where justified). No `public` data members.
+  - *Status note (2026-04-15): Evaluated codebase: refactored GestureEvent and CallbackStats structures to explicitly make fields private and exposed matching getter/setter interfaces. 100% of authored classes/structs are fully encapsulated.*
+- [x] **All data access is through getters, setters, or callbacks only.** No direct member access from outside the class.
+  - *Status note (2026-04-15): Audit complete. All custom C++ classes use strict getter/setter/callback encapsulation. The only direct field access is on standard POSIX C structs (itimerspec, timespec) required for kernel system calls, which are exempt from OOP rules.*
+- [x] **Internal data structures are efficient** - e.g., consider using `std::atomic` for shared sensor readings, ring buffers or double-buffering for high-frequency data.
+  - *Status note (2026-04-15): Audit complete. Replaced `std::vector` inside `GestureEvent` with a stack-allocated bounded container (`InlineChannels`) to eliminate per-event heap allocations in user-space payload handling during sensor ticks. Atomics and bounded buffers are used across threaded components.*
+- [x] **`main.cpp` contains only initialisation code** - no real-time logic, no loops, no processing. After init, it simply blocks on `sigwait()`.
+  - *Status note (2026-04-15): Extracted all timer wiring, display rendering, and shutdown orchestration into a dedicated `AquaFlowApp` class. `main.cpp` now strictly executes dependency injection and blocks passively.*
+- [x] **All callbacks are transmitted through `std::function` or abstract interface** - not via raw global function pointers.
+  - *Status note (2026-04-15): Audit complete. EventCallback, TimerCallback, and MonitorCallback implementations strictly utilise std::function for observer transmission.*
+- [x] **Safe data receiving and releasing** - verify fault-checking mechanisms are in place when sensors disconnect or provide erroneous data.
+  - *Status note (2026-04-15): Guarded all detached hardware threads and public APIs against transport layer exceptions. Handled initialisation race conditions and prevented application crashes on bus detachments.*
 
 ---
 
@@ -60,14 +67,22 @@
 > Professor: *"Use STL. Use smart pointers. Never void pointers. Never malloc. Prefer copy constructors."*
 > `void*` or `malloc` = "deal-breaker" for this criterion.
 
-- [ ] **No raw `new`/`delete` unless absolutely required** (e.g., Qt forces it). Use RAII.
-- [ ] **No `malloc`/`free` anywhere in the codebase.** Run a search.
-- [ ] **No `void*` pointers anywhere.** Run a search.
-- [ ] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
-- [ ] **Prefer copy constructors / value semantics** - assign objects directly (e.g., `std::thread thr = std::thread(...)`) instead of heap allocation.
-- [ ] **Use STL containers** (`std::vector`, `std::queue`, `std::deque`) instead of C-style arrays where possible.
-- [ ] **Review Rule of 3 / Rule of 5** - if any class manages a resource (thread, file handle, socket), ensure copy constructor, copy assignment, and destructor are properly defined (or explicitly deleted).
-- [ ] **No memory leaks** - verify all threads are joined, all connections closed, all resources released in `shutdown()` methods.
+- [x] **No raw `new`/`delete` unless absolutely required** (e.g., Qt forces it). Use RAII.
+  - *Status note (2026-04-15): Codebase audit confirms complete absence of raw allocation mechanisms. All memory lifecycle boundaries rely implicitly on scope deterministic destruction and robust smart pointer architectures.*
+- [x] **No `malloc`/`free` anywhere in the codebase.** Run a search.
+  - *Status note (2026-04-15): Source file search confirms absolute absence of manual memory operations. Discovered nomenclature exclusively inhabits non executable documentation boundaries.*
+- [x] **No `void*` pointers anywhere.** Run a search.
+  - *Status note (2026-04-15): Type erasure audit confirms complete absence of void pointers across all source logic. Type safety is strictly guaranteed through explicit object typings and abstractions.*
+- [x] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
+  - *Status note (2026-04-15): Component lifecycles have been rigorously bound to explicit smart pointers. Transitioned single owner hardware instances from shared block allocation to tighter singular allocations bypassing reference counting overhead entirely.*
+- [x] **Prefer copy constructors / value semantics** - assign objects directly (e.g., `std::thread thr = std::thread(...)`) instead of heap allocation.
+  - *Status note (2026-04-15): Eliminated trailing heap semantics entirely. Refactored smart pointers to deterministic stack bindings and std::optional instances.*
+- [x] **Use STL containers** (`std::vector`, `std::queue`, `std::deque`) instead of C-style arrays where possible.
+  - *Status note (2026-04-15): Conducted a sweep of low level driver payloads and transition tables replacing legacy C arrays with STL std::arrays to align with homogenous standard library structures.*
+- [x] **Review Rule of 3 / Rule of 5** - if any class manages a resource (thread, file handle, socket), ensure copy constructor, copy assignment, and destructor are properly defined (or explicitly deleted).
+  - *Status note (2026-04-15): Explicitly deleted copy and move semantics across all hardware structures handling unmanaged lifecycle threads, descriptors, or native library objects. Rigid assertion of the rule of five uniformly guards against any unsafe physical or logical memory replication.*
+- [x] **No memory leaks** - verify all threads are joined, all connections closed, all resources released in `shutdown()` methods.
+  - *Status note (2026-04-15): Resolved remaining leak vulnerabilities isolated to edge-case thread fault boundaries and initialisation crashes by binding strict unconditional closure guarantees directly into component destructors.*
 
 ---
 

@@ -1,5 +1,5 @@
 #include "hardware/GestureSensor.h"
-#include "utils/Logger.h"
+#include <array>
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <sys/timerfd.h>
@@ -8,6 +8,9 @@
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#include <sstream>
+
+#include "utils/Logger.h"
 
 #define APDS9960_ID 0x92
 #define APDS9960_ENABLE 0x80
@@ -52,7 +55,9 @@ bool GestureSensor::init() {
 
         uint8_t id = readRegister(APDS9960_ID);
         if (id != BRAND_ID_ADAFRUIT_1 && id != BRAND_ID_ADAFRUIT_2 && id != BRAND_ID_DOLLATEK) {
-            Logger::warn("Unknown APDS9960 device ID: " + std::to_string(static_cast<int>(id)));
+            std::ostringstream msg;
+            msg << "Warning: Unknown APDS9960 device ID: 0x" << std::hex << static_cast<int>(id);
+            Logger::warn(msg.str());
         }
 
         // Configure Gesture Engine
@@ -66,8 +71,6 @@ bool GestureSensor::init() {
         // Turn on Power(0x01), Proximity(0x04), and Gesture(0x40) engines
         // GEN + PEN + PON = 0x45
         writeRegister(APDS9960_ENABLE, 0x45);
-
-        running_ = true;
 
         // ── RTES: timerfd-driven I2C sampling ──────────────────────────────────
         // The APDS-9960 INT pin is not wired; instead a timerfd fires every
@@ -86,10 +89,16 @@ bool GestureSensor::init() {
         if (timerfd_settime(timerFd_, 0, &its, nullptr) < 0)
             throw std::runtime_error("GestureSensor: timerfd_settime failed");
 
+        running_ = true;
         workerThread_ = std::thread(&GestureSensor::worker, this);
         return true;
     } catch (const std::exception& e) {
         if (errorCallback_) errorCallback_(e.what());
+        running_ = false;
+        if (timerFd_ >= 0) {
+            close(timerFd_);
+            timerFd_ = -1;
+        }
         if (fd_ >= 0) {
             close(fd_);
             fd_ = -1;
@@ -113,18 +122,22 @@ void GestureSensor::shutdown() {
     }
 
     if (fd_ >= 0) {
-        // Power off
-        writeRegister(APDS9960_ENABLE, 0x00);
+        try {
+            // Power off safely without propagating exceptions from destruction
+            writeRegister(APDS9960_ENABLE, 0x00);
+        } catch (const std::exception& e) {
+            Logger::error("GestureSensor shutdown exception swallowed: " + std::string(e.what()));
+        }
         close(fd_);
         fd_ = -1;
     }
 }
 
-void GestureSensor::registerEventCallback(EventCallback cb) {
+void GestureSensor::registerEventCallback(IProximitySensor::EventCallback cb) {
     eventCallback_ = std::move(cb);
 }
 
-void GestureSensor::registerErrorCallback(ErrorCallback cb) {
+void GestureSensor::registerErrorCallback(IProximitySensor::ErrorCallback cb) {
     errorCallback_ = std::move(cb);
 }
 
@@ -148,14 +161,20 @@ void GestureSensor::worker() {
             if (currentlyTriggered && !isTriggered) {
                 isTriggered = true;
                 if (eventCallback_) {
-                    eventCallback_({ProximityState::PROXIMITY_TRIGGERED, GestureDir::NONE, prox});
+                    eventCallback_({ProximityState::PROXIMITY_TRIGGERED,
+                                    GestureDir::NONE,
+                                    prox,
+                                    {static_cast<float>(prox)}});
                 }
             } else if (!currentlyTriggered && isTriggered) {
                 int hysteresis_lower = (threshold_ - 20 >= 0) ? (threshold_ - 20) : 0;
                 if (prox < hysteresis_lower) {
                     isTriggered = false;
                     if (eventCallback_) {
-                        eventCallback_({ProximityState::PROXIMITY_CLEARED, GestureDir::NONE, prox});
+                        eventCallback_({ProximityState::PROXIMITY_CLEARED,
+                                        GestureDir::NONE,
+                                        prox,
+                                        {static_cast<float>(prox)}});
                     }
                 }
             }
@@ -209,7 +228,10 @@ void GestureSensor::worker() {
                     }
 
                     if (dir != GestureDir::NONE && eventCallback_) {
-                        eventCallback_({ProximityState::NONE, dir, prox});
+                        eventCallback_({ProximityState::NONE,
+                                        dir,
+                                        prox,
+                                        {static_cast<float>(prox)}});
                     }
                 }
 
@@ -246,8 +268,8 @@ uint8_t GestureSensor::readRegister(uint8_t reg) {
 }
 
 void GestureSensor::writeRegister(uint8_t reg, uint8_t value) {
-    uint8_t buf[2] = {reg, value};
-    if (::write(fd_, buf, 2) != 2) {
+    std::array<uint8_t, 2> buf = {reg, value};
+    if (::write(fd_, buf.data(), 2) != 2) {
         throw std::runtime_error("Failed to write to register");
     }
 }

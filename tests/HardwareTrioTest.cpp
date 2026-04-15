@@ -5,21 +5,31 @@
 
 #include <atomic>
 #include <chrono>
-#include <csignal>
 #include <iostream>
 #include <iomanip>
+#include <pthread.h>
+#include <signal.h>
 #include <thread>
 
 // ─── Graceful shutdown on Ctrl+C ─────────────────────────────────────────────
-static std::atomic<bool> keepRunning(true);
-
-void signalHandler(int signum) {
-    std::cout << "\n[Signal " << signum << "] Stopping...\n";
-    keepRunning = false;
-}
-
 int main() {
-    std::signal(SIGINT, signalHandler);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+
+    auto waitForStop = [&sigset](std::chrono::milliseconds timeout) {
+        timespec ts{};
+        ts.tv_sec = timeout.count() / 1000;
+        ts.tv_nsec = static_cast<long>((timeout.count() % 1000) * 1000000);
+        int sig = sigtimedwait(&sigset, nullptr, &ts);
+        if (sig == SIGINT || sig == SIGTERM) {
+            std::cout << "\n[Signal " << sig << "] Stopping...\n";
+            return true;
+        }
+        return false;
+    };
 
     std::cout << "=== Touchless Dispenser Gesture Terminal Test ===\n";
     std::cout << "ML per pulse  : " << ML_PER_PULSE << "\n\n";
@@ -53,7 +63,7 @@ int main() {
         
         // 1. Gesture Size Selection Logic
         if (appState == AppState::SELECTING) {
-            if (ev.direction == GestureDir::LEFT) {
+            if (ev.getDirection() == GestureDir::LEFT) {
                 if (activeTargetVolume == 500) activeTargetVolume = 400; // L -> M
                 else if (activeTargetVolume == 400) activeTargetVolume = 250; // M -> S
                 
@@ -62,7 +72,7 @@ int main() {
                 else std::cout << "MEDIUM (400ml)\n";
                 waitingMessagePrinted = false;
             } 
-            else if (ev.direction == GestureDir::RIGHT) {
+            else if (ev.getDirection() == GestureDir::RIGHT) {
                 if (activeTargetVolume == 250) activeTargetVolume = 400; // S -> M
                 else if (activeTargetVolume == 400) activeTargetVolume = 500; // M -> L
                 
@@ -71,7 +81,7 @@ int main() {
                 else std::cout << "MEDIUM (400ml)\n";
                 waitingMessagePrinted = false;
             }
-            else if (ev.direction == GestureDir::UP || ev.direction == GestureDir::DOWN) {
+            else if (ev.getDirection() == GestureDir::UP || ev.getDirection() == GestureDir::DOWN) {
                 // Confirm selection with vertical swipe!
                 std::cout << "\n*** SIZE CONFIRMED: " << activeTargetVolume << "ml ***\n";
                 std::cout << "[-] Place your cup under the nozzle to dispense.\n";
@@ -82,7 +92,7 @@ int main() {
         
         // 2. Proximity Dispensing Logic (Only triggers if confirmed!)
         else if (appState == AppState::CONFIRMED) {
-            if (ev.state == ProximityState::PROXIMITY_TRIGGERED) {
+            if (ev.getState() == ProximityState::PROXIMITY_TRIGGERED) {
                 std::cout << "\n>>> CUP DETECTED! Dispensing " << activeTargetVolume << " ml.\n";
                 flow.resetCount();
                 appState = AppState::DISPENSING;
@@ -93,7 +103,7 @@ int main() {
         
         // 3. Emergency Stop Logic
         else if (appState == AppState::DISPENSING) {
-            if (ev.state == ProximityState::PROXIMITY_CLEARED) {
+            if (ev.getState() == ProximityState::PROXIMITY_CLEARED) {
                 std::cout << "\n>>> CUP REMOVED EARLY! Dispensing aborted. Returning to selection screen.\n";
                 pump.turnOff();
                 appState = AppState::SELECTING; 
@@ -103,7 +113,7 @@ int main() {
         
         // 4. Finished Logic
         else if (appState == AppState::DONE) {
-            if (ev.state == ProximityState::PROXIMITY_CLEARED) {
+            if (ev.getState() == ProximityState::PROXIMITY_CLEARED) {
                 std::cout << "\n[-] Cup removed. Returning to size selection mode.\n";
                 appState = AppState::SELECTING;
                 waitingMessagePrinted = false;
@@ -116,8 +126,10 @@ int main() {
     std::cout << "[-] Current Size: MEDIUM (400ml).\n";
 
     // ── Live volume loop ──────────────────────────────────────────────────────
-    while (keepRunning) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    while (true) {
+        if (waitForStop(std::chrono::milliseconds(200))) {
+            break;
+        }
 
         if (appState == AppState::DISPENSING) {
             double vol = flow.getVolumeML();
@@ -129,7 +141,7 @@ int main() {
                       << std::flush;
 
             // Stop when we hit the dynamically selected size
-            if (flow.hasReachedTarget((double)activeTargetVolume)) {
+            if (flow.getVolumeML() >= static_cast<double>(activeTargetVolume)) {
                 std::cout << "\n\n*** TARGET " << activeTargetVolume << "ml REACHED! ***\n";
                 pump.turnOff();
                 appState = AppState::DONE;

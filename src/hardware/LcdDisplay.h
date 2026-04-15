@@ -23,11 +23,9 @@
  *   LcdDisplay lcd(LCD_I2C_BUS, LCD_I2C_ADDRESS);
  *   lcd.init();
  *
- *   // On state machine change (monitor callback):
- *   lcd.showStatus("FILLING", 0.0, 3);
- *
- *   // Every timer tick (real-time volume from flow meter):
- *   lcd.showVolume(flowMeter.getVolumeML());
+ *   // Orchestrator formats the text; driver just renders it:
+ *   lcd.print(0, "FILLING");
+ *   lcd.print(1, "Vol: 123.4 ml");
  * @endcode
  */
 class LcdDisplay : public IHardwareDevice {
@@ -39,12 +37,17 @@ public:
     LcdDisplay(int i2cBus, int i2cAddr);
     ~LcdDisplay() override;
 
+    LcdDisplay(const LcdDisplay&) = delete;
+    LcdDisplay& operator=(const LcdDisplay&) = delete;
+    LcdDisplay(LcdDisplay&&) = delete;
+    LcdDisplay& operator=(LcdDisplay&&) = delete;
+
     // ── IHardwareDevice ───────────────────────────────────────────────────────
 
     /** @brief Open I2C device, run HD44780 4-bit init sequence, enable backlight. */
     bool init() override;
 
-    /** @brief Print goodbye message, turn off backlight, close file descriptor. */
+    /** @brief Turn off backlight and release the I2C file descriptor. */
     void shutdown() override;
 
     // ── Display API ───────────────────────────────────────────────────────────
@@ -62,31 +65,6 @@ public:
      * @param text  Text to display (truncated to 16 chars if longer).
      */
     void print(int row, const std::string& text);
-
-    /**
-     * @brief Update row 1 with the current dispensed volume.
-     *
-     * Intended to be called on every timer tick (1 Hz) so the display shows
-     * live flow-meter readings without a full-screen redraw.
-     *
-     * Example output:  "Vol:  123.4 ml  "
-     *
-     * @param volumeML  Current reading from FlowMeter::getVolumeML().
-     */
-    void showVolume(double volumeML);
-
-    /**
-     * @brief Full two-row status update — called on FillingController state changes.
-     *
-     * Layout:
-     *   Row 0: state string, e.g. "FILLING         "
-     *   Row 1: "Vol:  450.0 ml  "  (FILLING) or "Bottles:  3     " (other)
-     *
-     * @param state    State machine name ("IDLE", "FILLING", "DONE", …).
-     * @param volumeML Dispensed volume this fill cycle (ml).
-     * @param bottles  Total completed bottles since startup.
-     */
-    void showStatus(const std::string& state, double volumeML, int bottles);
 
 private:
     // ── HD44780 low-level helpers ─────────────────────────────────────────────
@@ -125,7 +103,4 @@ private:
     int  fd_          = -1;
     bool initialised_ = false;
     bool backlightOn_ = true;
-
-    // Track last-printed state so showStatus can skip redundant row-0 writes
-    std::string lastState_;
 };

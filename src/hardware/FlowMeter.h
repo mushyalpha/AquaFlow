@@ -1,11 +1,12 @@
 #pragma once
 
 #include "IHardwareDevice.h"
+#include "IFlowMeter.h"
 
 #include <atomic>
 #include <chrono>
 #include <functional>
-#include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -27,7 +28,7 @@
  *
  * Inherits IHardwareDevice for SOLID Liskov substitutability.
  */
-class FlowMeter : public IHardwareDevice {
+class FlowMeter : public IHardwareDevice, public IFlowMeter {
 public:
     /**
      * @param chipNo      GPIO chip number (0 for Pi 1-4, 4 for Pi 5).
@@ -36,6 +37,11 @@ public:
      */
     FlowMeter(unsigned int chipNo, unsigned int pinNo, float mlPerPulse = 1.0f)
         : chipNo_(chipNo), pinNo_(pinNo), mlPerPulse_(mlPerPulse) {}
+
+    FlowMeter(const FlowMeter&) = delete;
+    FlowMeter& operator=(const FlowMeter&) = delete;
+    FlowMeter(FlowMeter&&) = delete;
+    FlowMeter& operator=(FlowMeter&&) = delete;
 
     ~FlowMeter() override { shutdown(); }
 
@@ -50,16 +56,13 @@ public:
     // ── Flow data API (safe to call from any thread) ─────────────────────────
 
     /** @brief Reset the pulse counter to zero (call before a new fill). */
-    void resetCount();
+    void resetCount() override;
 
     /** @brief Current pulse count since last reset. */
-    int getPulseCount() const;
+    int getPulseCount() const override;
 
     /** @brief Accumulated volume in millilitres since last reset. */
-    double getVolumeML() const;
-
-    /** @brief True when accumulated volume >= targetVolumeML. */
-    bool hasReachedTarget(double targetVolumeML) const;
+    double getVolumeML() const override;
 
 #ifdef AQUAFLOW_TESTING
     /** @brief Test seam for unit tests to inject a synthetic pulse count. */
@@ -88,6 +91,6 @@ private:
     std::chrono::steady_clock::time_point lastPulseTime_{};
 
     std::thread edgeThread_;
-    std::shared_ptr<gpiod::chip>         chip_;
-    std::shared_ptr<gpiod::line_request> request_;
+    std::optional<gpiod::chip>         chip_;
+    std::optional<gpiod::line_request> request_;
 };

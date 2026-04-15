@@ -3,19 +3,22 @@
 #include <stdexcept>
 #include <string>
 
+#include "utils/Logger.h"
+
 // ── IHardwareDevice ───────────────────────────────────────────────────────────
 
 bool FlowMeter::init() {
-    if (running_) return true;  // Already started
+    if (running_) return true; 
     try {
         setupGpio();
+        running_ = true;
+        pulseCount_ = 0;
+        edgeThread_ = std::thread(&FlowMeter::edgeWorker, this);
+        return true;
     } catch (const std::exception& e) {
+        shutdown();
         return false;
     }
-    running_ = true;
-    pulseCount_ = 0;
-    edgeThread_ = std::thread(&FlowMeter::edgeWorker, this);
-    return true;
 }
 
 #ifdef AQUAFLOW_TESTING
@@ -25,12 +28,11 @@ void FlowMeter::injectPulseCountForTest(int pulseCount) {
 #endif
 
 void FlowMeter::shutdown() {
-    if (!running_) return;
     running_ = false;
     if (edgeThread_.joinable()) edgeThread_.join();
-    // Release libgpiod resources (smart pointers handle cleanup)
-    request_.reset();
-    chip_.reset();
+    // Release libgpiod resources safely regardless of internal failure state
+    if (request_) request_.reset();
+    if (chip_) chip_.reset();
 }
 
 // ── Flow data API ─────────────────────────────────────────────────────────────
@@ -47,15 +49,11 @@ double FlowMeter::getVolumeML() const {
     return static_cast<double>(pulseCount_.load()) * mlPerPulse_;
 }
 
-bool FlowMeter::hasReachedTarget(double targetVolumeML) const {
-    return getVolumeML() >= targetVolumeML;
-}
-
 // ── Private ───────────────────────────────────────────────────────────────────
 
 void FlowMeter::setupGpio() {
     const std::string chipPath = "/dev/gpiochip" + std::to_string(chipNo_);
-    chip_ = std::make_shared<gpiod::chip>(chipPath);
+    chip_ = gpiod::chip(chipPath);
 
     gpiod::line_config lineCfg;
     lineCfg.add_line_settings(
@@ -71,37 +69,45 @@ void FlowMeter::setupGpio() {
     auto builder = chip_->prepare_request();
     builder.set_consumer("flow_meter");
     builder.set_line_config(lineCfg);
-    request_ = std::make_shared<gpiod::line_request>(builder.do_request());
+    request_ = builder.do_request();
 }
 
 void FlowMeter::edgeWorker() {
     // Initialise to epoch so the very first real pulse is always accepted
     lastPulseTime_ = std::chrono::steady_clock::time_point{};
 
-    while (running_) {
-        // Blocking wait — thread sleeps until a pulse arrives or 200 ms timeout
-        if (request_->wait_edge_events(std::chrono::milliseconds(200))) {
-            gpiod::edge_event_buffer buffer(8);
-            std::size_t num = request_->read_edge_events(buffer);
+    try {
+        while (running_) {
+            // Blocking wait - thread sleeps until a pulse arrives or 200 ms timeout
+            if (request_->wait_edge_events(std::chrono::milliseconds(200))) {
+                gpiod::edge_event_buffer buffer(8);
+                std::size_t num = request_->read_edge_events(buffer);
 
-            for (std::size_t i = 0; i < num; ++i) {
-                if (buffer.get_event(i).type() ==
-                    gpiod::edge_event::event_type::FALLING_EDGE) {
+                for (std::size_t i = 0; i < num; ++i) {
+                    if (buffer.get_event(i).type() ==
+                        gpiod::edge_event::event_type::FALLING_EDGE) {
 
-                    auto now = std::chrono::steady_clock::now();
-                    auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                   now - lastPulseTime_).count();
+                        auto now = std::chrono::steady_clock::now();
+                        auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       now - lastPulseTime_).count();
 
-                    // Debounce: reject bursts spaced closer than DEBOUNCE_MS.
-                    // Real YF-S401 pulses at max flow are ~10 ms apart;
-                    // motor-EMI noise bursts arrive microseconds apart.
-                    if (gap >= DEBOUNCE_MS) {
-                        pulseCount_++;
-                        lastPulseTime_ = now;
+                        // ignore any two pulses that arrive too quickly
+                        // Real water flow from the sensor produces pulses about every 10 ms
+                        // electrical noise shows up much faster like in microseconds.
+                        // So if the gap between pulses is at least DEBOUNCE_MS (5 ms)
+                        // we count it but if its less than that we treat it as noise and skip it.
+                        if (gap >= DEBOUNCE_MS) {
+                            pulseCount_++;
+                            lastPulseTime_ = now;
+                        }
                     }
                 }
             }
         }
+    } catch (const std::exception& e) {
+        Logger::error("FlowMeter hardware fault (thread aborted): " + std::string(e.what()));
+        running_ = false;
     }
 }
+
 

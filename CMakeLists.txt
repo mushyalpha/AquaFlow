@@ -11,6 +11,7 @@ include_directories(src)       # hardware/, state/, monitor/, utils/ sub-paths
 # ── Main executable ───────────────────────────────────────────────────────────
 add_executable(filling_machine
     src/main.cpp
+    src/app/AquaFlowApp.cpp
     src/hardware/GestureSensor.cpp
     src/hardware/PumpController.cpp
     src/hardware/FlowMeter.cpp
@@ -92,3 +93,10 @@ add_executable(pump_flow_duo_test
 )
 target_include_directories(pump_flow_duo_test PRIVATE include src)
 target_link_libraries(pump_flow_duo_test gpiodcxx pthread)
+
+# LSP stress test (pure interface-level substitution, no GPIO required)
+add_executable(lsp_stress_test
+    tests/LiskovSubstitutionStressTest.cpp
+    src/state/FillingController.cpp
+)
+target_include_directories(lsp_stress_test PRIVATE include src)
