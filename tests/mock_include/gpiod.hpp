@@ -28,6 +28,7 @@ namespace line {
     enum class direction { INPUT, OUTPUT };
     enum class edge      { RISING, FALLING, BOTH };
     enum class value     { INACTIVE = 0, ACTIVE = 1 };
+    enum class bias      { AS_IS = 0, DISABLED, PULL_UP, PULL_DOWN };
 }
 
 // ─── edge_event ──────────────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ public:
     edge_event() : type_val_(event_type::FALLING_EDGE), ts_ns_(0) {}
     edge_event(int t, uint64_t ts) : type_val_(t), ts_ns_(ts) {}
 
-    int event_type() const { return type_val_; }
+    int type() const { return type_val_; }
     uint64_t timestamp_ns() const { return ts_ns_; }
 
 private:
@@ -80,9 +81,11 @@ public:
     line_settings& set_direction(line::direction d) { dir_ = d; return *this; }
     line_settings& set_edge_detection(line::edge e) { edge_ = e; return *this; }
     line_settings& set_output_value(line::value v) { return *this; }
+    line_settings& set_bias(line::bias b) { bias_ = b; return *this; }
 
     line::direction dir_ = line::direction::INPUT;
     line::edge edge_ = line::edge::FALLING;
+    line::bias bias_ = line::bias::AS_IS;
 };
 
 // ─── line_config ─────────────────────────────────────────────────────────────
@@ -90,6 +93,9 @@ public:
 class line_config {
 public:
     void add_line_settings(std::initializer_list<unsigned int> pins, line_settings s) {
+        settings_ = s;
+    }
+    void add_line_settings(unsigned int pin, line_settings s) {
         settings_ = s;
     }
     line_settings settings_;
