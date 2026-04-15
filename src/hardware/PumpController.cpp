@@ -65,19 +65,32 @@ void PumpController::shutdown() {
 
 void PumpController::turnOn() {
     if (!initialised_ || running_) return;
-    request_->set_value(pumpPin_, onValue());
+    if (request_) {
+        request_->set_value(pumpPin_, onValue());
+    }
     running_ = true;
     Logger::info("Pump started!");
 }
 
 void PumpController::turnOff() {
     if (!initialised_ || !running_) return;
-    request_->set_value(pumpPin_, offValue());
+    if (request_) {
+        request_->set_value(pumpPin_, offValue());
+    }
     running_ = false;
     Logger::info("Pump stopped.");
 }
 
 bool PumpController::isRunning() const { return running_; }
+
+#ifdef AQUAFLOW_TESTING
+void PumpController::enableSimulationForTest() {
+    initialised_ = true;
+    running_ = false;
+    request_.reset();
+    chip_.reset();
+}
+#endif
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

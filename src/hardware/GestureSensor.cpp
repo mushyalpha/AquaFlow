@@ -141,6 +141,14 @@ void GestureSensor::registerErrorCallback(IProximitySensor::ErrorCallback cb) {
     errorCallback_ = std::move(cb);
 }
 
+#ifdef AQUAFLOW_TESTING
+void GestureSensor::emitEventForTest(const GestureEvent& event) const {
+    if (eventCallback_) {
+        eventCallback_(event);
+    }
+}
+#endif
+
 void GestureSensor::worker() {
     bool isTriggered = false;
 

@@ -51,6 +51,11 @@ public:
     /** @brief True while the pump is running. */
     bool isRunning() const override;
 
+#ifdef AQUAFLOW_TESTING
+    /** @brief Enable a hardware-free simulation mode for unit tests. */
+    void enableSimulationForTest();
+#endif
+
 private:
     DriveMode mode_;
 

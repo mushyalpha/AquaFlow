@@ -6,9 +6,6 @@
 #include <atomic>
 #include <string>
 #include <cstdint>
-#include <cstdint>  // uint8_t
-// timerfd_create / timerfd_settime (replaces sleep-based polling)
-#include <sys/timerfd.h>
 
 class GestureSensor : public IHardwareDevice, public IProximitySensor {
 public:
@@ -21,10 +18,17 @@ public:
     GestureSensor& operator=(GestureSensor&&) = delete;
 
     bool init() override;
+
+    /** @brief Reaps polling thread and safely closes mapped file descriptors. */
     void shutdown() override;
 
     void registerEventCallback(IProximitySensor::EventCallback cb) override;
     void registerErrorCallback(IProximitySensor::ErrorCallback cb) override;
+
+#ifdef AQUAFLOW_TESTING
+    /** @brief Test seam for unit tests to inject a synthetic event. */
+    void emitEventForTest(const GestureEvent& event) const;
+#endif
 
 private:
     void worker();

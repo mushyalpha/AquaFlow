@@ -24,6 +24,10 @@ class Timer {
 public:
     using TimerCallback = std::function<void()>;
 
+    /**
+     * @brief Construct an executing context locking the duration intervals.
+     * @param intervalMs The repeating cycle time bounded in milliseconds integer.
+     */
     explicit Timer(int intervalMs) : intervalMs_(intervalMs) {}
     ~Timer() { stop(); }
 

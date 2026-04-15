@@ -1,4 +1,5 @@
 #include "hardware/LcdDisplay.h"
+#include "utils/Logger.h"
 
 #include <array>
 #include <linux/i2c-dev.h>

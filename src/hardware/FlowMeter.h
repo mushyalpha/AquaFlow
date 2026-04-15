@@ -64,6 +64,11 @@ public:
     /** @brief Accumulated volume in millilitres since last reset. */
     double getVolumeML() const override;
 
+#ifdef AQUAFLOW_TESTING
+    /** @brief Test seam for unit tests to inject a synthetic pulse count. */
+    void injectPulseCountForTest(int pulseCount);
+#endif
+
 private:
     void setupGpio();
 

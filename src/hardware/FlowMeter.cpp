@@ -21,6 +21,12 @@ bool FlowMeter::init() {
     }
 }
 
+#ifdef AQUAFLOW_TESTING
+void FlowMeter::injectPulseCountForTest(int pulseCount) {
+    pulseCount_.store(pulseCount);
+}
+#endif
+
 void FlowMeter::shutdown() {
     running_ = false;
     if (edgeThread_.joinable()) edgeThread_.join();
