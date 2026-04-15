@@ -57,6 +57,6 @@ private:
     bool running_    = false;
     bool initialised_= false;
 
-    std::shared_ptr<gpiod::chip>         chip_;
-    std::shared_ptr<gpiod::line_request> request_;
+    std::unique_ptr<gpiod::chip>         chip_;
+    std::unique_ptr<gpiod::line_request> request_;
 };

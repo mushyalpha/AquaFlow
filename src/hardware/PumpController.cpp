@@ -19,7 +19,7 @@ bool PumpController::init() {
 
     try {
         const std::string chipPath = "/dev/gpiochip" + std::to_string(chipNo_);
-        chip_ = std::make_shared<gpiod::chip>(chipPath);
+        chip_ = std::make_unique<gpiod::chip>(chipPath);
 
         // Configure the pump pin as output, idle = pump OFF
         gpiod::line_config lineCfg;
@@ -32,7 +32,7 @@ bool PumpController::init() {
         auto builder = chip_->prepare_request();
         builder.set_consumer("pump_controller");
         builder.set_line_config(lineCfg);
-        request_ = std::make_shared<gpiod::line_request>(builder.do_request());
+        request_ = std::make_unique<gpiod::line_request>(builder.do_request());
 
         running_     = false;
         initialised_ = true;

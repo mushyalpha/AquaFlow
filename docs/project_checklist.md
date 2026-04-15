@@ -73,7 +73,8 @@
   - *Status note (2026-04-15): Source file search confirms absolute absence of manual memory operations. Discovered nomenclature exclusively inhabits non executable documentation boundaries.*
 - [x] **No `void*` pointers anywhere.** Run a search.
   - *Status note (2026-04-15): Type erasure audit confirms complete absence of void pointers across all source logic. Type safety is strictly guaranteed through explicit object typings and abstractions.*
-- [ ] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
+- [x] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
+  - *Status note (2026-04-15): Component lifecycles have been rigorously bound to explicit smart pointers. Transitioned single owner hardware instances from shared block allocation to tighter singular allocations bypassing reference counting overhead entirely.*
 - [ ] **Prefer copy constructors / value semantics** - assign objects directly (e.g., `std::thread thr = std::thread(...)`) instead of heap allocation.
 - [ ] **Use STL containers** (`std::vector`, `std::queue`, `std::deque`) instead of C-style arrays where possible.
 - [ ] **Review Rule of 3 / Rule of 5** - if any class manages a resource (thread, file handle, socket), ensure copy constructor, copy assignment, and destructor are properly defined (or explicitly deleted).
