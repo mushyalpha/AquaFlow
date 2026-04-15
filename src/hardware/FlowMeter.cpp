@@ -60,9 +60,10 @@ void FlowMeter::setupGpio() {
         pinNo_,
         gpiod::line_settings()
             .set_direction(gpiod::line::direction::INPUT)
-            // YF-S401 signal is open-collector. Please ensure a physical
-            // 10k pull-up resistor is installed between the signal and 3.3V/5V
-            // as this version of libgpiod does not support setting internal bias.
+            // YF-S401 signal is open-collector: enable the Pi's internal 50kΩ
+            // pull-up so the line idles HIGH and pulses LOW on each flow tick.
+            // Without this the signal floats and produces spurious counts.
+            .set_bias(gpiod::line::bias::PULL_UP)
             .set_edge_detection(gpiod::line::edge::FALLING));
 
     auto builder = chip_->prepare_request();
@@ -83,7 +84,7 @@ void FlowMeter::edgeWorker() {
                 std::size_t num = request_->read_edge_events(buffer);
 
                 for (std::size_t i = 0; i < num; ++i) {
-                    if (buffer.get_event(i).event_type() ==
+                    if (buffer.get_event(i).type() ==
                         gpiod::edge_event::event_type::FALLING_EDGE) {
 
                         auto now = std::chrono::steady_clock::now();
