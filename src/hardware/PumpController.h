@@ -3,7 +3,7 @@
 #include "IHardwareDevice.h"
 #include "IPump.h"
 
-#include <memory>
+#include <optional>
 #include <string>
 
 #include <gpiod.hpp>
@@ -57,6 +57,6 @@ private:
     bool running_    = false;
     bool initialised_= false;
 
-    std::unique_ptr<gpiod::chip>         chip_;
-    std::unique_ptr<gpiod::line_request> request_;
+    std::optional<gpiod::chip>         chip_;
+    std::optional<gpiod::line_request> request_;
 };

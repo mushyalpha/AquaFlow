@@ -6,7 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
-#include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -81,6 +81,6 @@ private:
     std::chrono::steady_clock::time_point lastPulseTime_{};
 
     std::thread edgeThread_;
-    std::unique_ptr<gpiod::chip>         chip_;
-    std::unique_ptr<gpiod::line_request> request_;
+    std::optional<gpiod::chip>         chip_;
+    std::optional<gpiod::line_request> request_;
 };

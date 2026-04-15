@@ -256,15 +256,16 @@ void runControllerScenario(SensorType& sensor) {
 void stressLifecycleSubstitution() {
     constexpr std::size_t kRounds = 2000;
 
-    std::vector<std::unique_ptr<ScriptedLifecycleDevice>> ownedDevices;
-    ownedDevices.emplace_back(std::make_unique<ScriptedLifecycleDevice>(std::vector<bool>{true}));
-    ownedDevices.emplace_back(std::make_unique<ScriptedLifecycleDevice>(std::vector<bool>{true, false, true}));
-    ownedDevices.emplace_back(std::make_unique<ScriptedLifecycleDevice>(std::vector<bool>{false, true}));
+    ScriptedLifecycleDevice dev1(std::vector<bool>{true});
+    ScriptedLifecycleDevice dev2(std::vector<bool>{true, false, true});
+    ScriptedLifecycleDevice dev3(std::vector<bool>{false, true});
+
+    std::vector<ScriptedLifecycleDevice*> ownedDevices = {&dev1, &dev2, &dev3};
 
     std::vector<IHardwareDevice*> devices;
     devices.reserve(ownedDevices.size());
-    for (const auto& device : ownedDevices) {
-        devices.push_back(device.get());
+    for (auto* device : ownedDevices) {
+        devices.push_back(device);
     }
 
     for (std::size_t round = 0; round < kRounds; ++round) {
@@ -278,7 +279,7 @@ void stressLifecycleSubstitution() {
         }
     }
 
-    for (const auto& device : ownedDevices) {
+    for (const auto* device : ownedDevices) {
         require(device->initCalls() == kRounds,
                 "Each derived device must be initialised through the base exactly once per round");
         require(device->shutdownCalls() == (kRounds * 2),

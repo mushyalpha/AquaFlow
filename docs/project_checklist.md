@@ -75,7 +75,8 @@
   - *Status note (2026-04-15): Type erasure audit confirms complete absence of void pointers across all source logic. Type safety is strictly guaranteed through explicit object typings and abstractions.*
 - [x] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
   - *Status note (2026-04-15): Component lifecycles have been rigorously bound to explicit smart pointers. Transitioned single owner hardware instances from shared block allocation to tighter singular allocations bypassing reference counting overhead entirely.*
-- [ ] **Prefer copy constructors / value semantics** - assign objects directly (e.g., `std::thread thr = std::thread(...)`) instead of heap allocation.
+- [x] **Prefer copy constructors / value semantics** - assign objects directly (e.g., `std::thread thr = std::thread(...)`) instead of heap allocation.
+  - *Status note (2026-04-15): Eliminated trailing heap semantics entirely. Refactored smart pointers to deterministic stack bindings and std::optional instances.*
 - [ ] **Use STL containers** (`std::vector`, `std::queue`, `std::deque`) instead of C-style arrays where possible.
 - [ ] **Review Rule of 3 / Rule of 5** - if any class manages a resource (thread, file handle, socket), ensure copy constructor, copy assignment, and destructor are properly defined (or explicitly deleted).
 - [ ] **No memory leaks** - verify all threads are joined, all connections closed, all resources released in `shutdown()` methods.
