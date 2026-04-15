@@ -3,36 +3,54 @@
 
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 void Monitor::onStateChange(const std::string& state,
                              double volumeML,
                              int    bottleCount) {
-    if (state != lastState_) {
-        if (!lastState_.empty()) {
-            if (state == "CONFIRMATION") {
-                Logger::info("Cup detected! Starting confirmation timer...");
-            } else if (state == "WAITING") {
-                if (lastState_ == "CONFIRMATION") {
-                    Logger::info("Cup removed before confirmation - resetting.");
-                } else if (lastState_ == "FILL_COMPLETE") {
-                    Logger::info("Fill complete. Waiting for next cup...");
-                }
-            } else if (state == "FILLING") {
-                Logger::info("Cup confirmed! Filling in progress...");
-            } else if (state == "FILL_COMPLETE") {
-                std::ostringstream oss;
-                oss << "Target reached! Dispensed " << std::fixed << std::setprecision(1) << volumeML 
-                    << " ml. Bottles filled: " << bottleCount;
-                Logger::info(oss.str());
+
+    const bool stateChanged  = (state != lastState_);
+    // Only treat volume as "changed" when actively filling (avoids idle noise)
+    const bool volumeChanged = (state == "FILLING") &&
+                               (std::abs(volumeML - lastVolumeML_) >= 10.0);
+
+    // ── Log meaningful state transition messages ──────────────────────────────
+    if (stateChanged && !lastState_.empty()) {
+        if (state == "CONFIRMING") {
+            Logger::info("Cup detected! Confirming placement — hold steady...");
+        } else if (state == "PLACE CUP") {
+            if (lastState_ == "CONFIRMING") {
+                Logger::info("Cup removed before confirmation — please hold the cup steady.");
+            } else if (lastState_ == "COMPLETE") {
+                Logger::info("Cup removed. Ready for next fill.");
             }
+        } else if (state == "FILLING") {
+            Logger::info("Cup confirmed! Filling in progress...");
+        } else if (state == "COMPLETE") {
+            std::ostringstream oss;
+            oss << "Target reached! Dispensed "
+                << std::fixed << std::setprecision(1) << volumeML
+                << " ml. Cups filled this session: " << bottleCount;
+            Logger::info(oss.str());
+        } else if (state.rfind("SELECT:", 0) == 0 && lastState_ == "COMPLETE") {
+            Logger::info("Fill complete. Press 'b' to cycle size or 's' to refill.");
         }
+    }
+
+    // IMPORTANT: always update lastState_ on any state change — must be outside
+    // the !lastState_.empty() guard so the very first state is captured correctly.
+    if (stateChanged) {
         lastState_ = state;
     }
 
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(1)
-        << "[State: " << state
-        << " | Volume: " << volumeML << " ml"
-        << " | Bottles: " << bottleCount << "]";
-    Logger::info(oss.str());
+    // ── Status line: only print when something actually changed ───────────────
+    if (stateChanged || volumeChanged) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(1)
+            << "[State: " << state
+            << " | Volume: " << volumeML << " ml"
+            << " | Cups: "  << bottleCount << "]";
+        Logger::info(oss.str());
+        lastVolumeML_ = volumeML;
+    }
 }
