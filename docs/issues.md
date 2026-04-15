@@ -18,6 +18,12 @@ This document tracks technical issues and milestones for the AquaFlow project.
 - **Priority:** High
 - **Description:** Need to verify state transitions in `FillingController` using a Mock FlowMeter.
 
+### [#18] Safety Enhancement: Distinguish Cup Presence from Empty Hand Waves
+- **Status:** Open
+- **Priority:** High
+- **Labels:** `enhancement`, `safety`
+- **Description:** Currently, the APDS-9960 sensor serves as both the proximity trigger (cup detector) and the gesture detector. If a user waves their hand rapidly across the empty sensor, the hand itself triggers proximity (`bottlePresent_` = true) and registers a gesture, causing the pump to briefly turn on before the hand exits and triggers the safety abort. We need to implement a stricter safety condition (e.g., integrating a dedicated IR/Ultrasonic cup sensor, or requiring the proximity signal to be completely static for *N* seconds before accepting gestures) to mathematically guarantee that water never flows unless a physical cup is definitively present.
+
 ---
 
 ## Closed Issues
