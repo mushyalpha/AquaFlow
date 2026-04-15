@@ -55,7 +55,8 @@
   - *Status note (2026-04-15): Audit complete. Replaced `std::vector` inside `GestureEvent` with a stack-allocated bounded container (`InlineChannels`) to eliminate per-event heap allocations in user-space payload handling during sensor ticks. Atomics and bounded buffers are used across threaded components.*
 - [x] **`main.cpp` contains only initialisation code** - no real-time logic, no loops, no processing. After init, it simply blocks on `sigwait()`.
   - *Status note (2026-04-15): Extracted all timer wiring, display rendering, and shutdown orchestration into a dedicated `AquaFlowApp` class. `main.cpp` now strictly executes dependency injection and blocks passively.*
-- [ ] **All callbacks are transmitted through `std::function` or abstract interface** - not via raw global function pointers.
+- [x] **All callbacks are transmitted through `std::function` or abstract interface** - not via raw global function pointers.
+  - *Status note (2026-04-15): Audit complete. EventCallback, TimerCallback, and MonitorCallback implementations strictly utilise std::function for observer transmission.*
 - [ ] **Safe data receiving and releasing** - verify fault-checking mechanisms are in place when sensors disconnect or provide erroneous data.
 
 ---
