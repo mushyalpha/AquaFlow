@@ -21,8 +21,11 @@ constexpr int BUTTON_PIN = 26;
 constexpr int LOOP_INTERVAL_MS = 100;   // ms
 
 // Cup confirmation hold time — cup must remain in range this long before the
-// pump starts.  Prevents false triggers from objects passing the sensor.
-constexpr int CUP_CONFIRM_MS = 800;   // ms
+// pump starts.  Prevents false triggers while the user is still placing the cup.
+// NOTE: 800ms was too fast during testing — the cup trigger fired mid-placement.
+//       Increased to 1500ms (1.5s) to give the user time to set the cup down stably.
+//       Adjust if the wait feels too long in production.
+constexpr int CUP_CONFIRM_MS = 1500;  // ms
 
 // ─── Flow Settings ───────────────────────────────────────────────────────────
 // YF-S401 spec: ~5880 pulses/litre  →  1000 mL / 5880 pulses ≈ 0.1701 mL/pulse
