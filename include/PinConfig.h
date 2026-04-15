@@ -35,7 +35,7 @@ constexpr unsigned int GPIO_CHIP_NO = 4u;  // libgpiod chip number
 // I2C address fixed at 0x39 (hardware).
 constexpr int GESTURE_I2C_BUS     = 1;     // /dev/i2c-1
 constexpr int GESTURE_I2C_ADDR    = 0x39;  // APDS-9960 fixed address
-constexpr int GESTURE_THRESHOLD   = 40;    // proximity trigger threshold (0–255)
+constexpr int GESTURE_THRESHOLD   = 15;    // proximity trigger threshold (0–255)
 
 // LCD1602 with PCF8574T I2C backpack — shares bus with gesture sensor (different address)
 // Run `i2cdetect -y 1` to confirm address: default = 0x27, alt (jumper) = 0x3F
