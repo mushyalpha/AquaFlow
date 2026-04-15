@@ -35,6 +35,11 @@ void Monitor::onStateChange(const std::string& state,
         } else if (state.rfind("SELECT:", 0) == 0 && lastState_ == "COMPLETE") {
             Logger::info("Fill complete. Press 'b' to cycle size or 's' to refill.");
         }
+    }
+
+    // IMPORTANT: always update lastState_ on any state change — must be outside
+    // the !lastState_.empty() guard so the very first state is captured correctly.
+    if (stateChanged) {
         lastState_ = state;
     }
 

@@ -35,10 +35,13 @@ void AquaFlowApp::start() {
     {
         monitor_.onStateChange(state, vol, cups);
 
-        // ── LCD row 0: state label ──────────────────────────────────────────
+        // ── LCD: only update when the displayed state changes ───────────────
+        if (state == lastLcdState_) return;
+        lastLcdState_ = state;
+
         if (state.rfind("SELECT:", 0) == 0) {
             // e.g. "SELECT:MEDIUM"
-            lcd_.print(0, "Size: " + state.substr(7));                   // "Size: MEDIUM"
+            lcd_.print(0, "Size: " + state.substr(7));   // "Size: MEDIUM"
             lcd_.print(1, "'b'cycle  's'select");
 
         } else if (state == "PLACE CUP") {

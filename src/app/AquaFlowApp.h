@@ -57,6 +57,8 @@ private:
     std::atomic<bool> running_{false};
     std::thread       keyboardThread_;
 
+    std::string lastLcdState_;  ///< Last state written to LCD; prevents redundant I2C writes each tick
+
     /** Entry point for the keyboard input thread. */
     void runKeyboard();
 };
