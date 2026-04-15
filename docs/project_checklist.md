@@ -67,7 +67,8 @@
 > Professor: *"Use STL. Use smart pointers. Never void pointers. Never malloc. Prefer copy constructors."*
 > `void*` or `malloc` = "deal-breaker" for this criterion.
 
-- [ ] **No raw `new`/`delete` unless absolutely required** (e.g., Qt forces it). Use RAII.
+- [x] **No raw `new`/`delete` unless absolutely required** (e.g., Qt forces it). Use RAII.
+  - *Status note (2026-04-15): Codebase audit confirms complete absence of raw allocation mechanisms. All memory lifecycle boundaries rely implicitly on scope deterministic destruction and robust smart pointer architectures.*
 - [ ] **No `malloc`/`free` anywhere in the codebase.** Run a search.
 - [ ] **No `void*` pointers anywhere.** Run a search.
 - [ ] **Use `std::shared_ptr` / `std::unique_ptr`** for any dynamically allocated objects.
