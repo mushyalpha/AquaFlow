@@ -2,6 +2,7 @@
 #define IPROXIMITYSENSOR_H
 
 #include <functional>
+#include <initializer_list>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,22 @@ enum class GestureDir {
     RIGHT
 };
 
+class InlineChannels {
+private:
+    float data_[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    std::size_t count_ = 0;
+public:
+    InlineChannels() = default;
+    InlineChannels(std::initializer_list<float> init) {
+        for (auto it = init.begin(); it != init.end() && count_ < 4; ++it) {
+            data_[count_++] = *it;
+        }
+    }
+    bool empty() const { return count_ == 0; }
+    std::size_t size() const { return count_; }
+    float front() const { return count_ > 0 ? data_[0] : 0.0f; }
+};
+
 struct GestureEvent {
 private:
     ProximityState state = ProximityState::NONE;
@@ -27,20 +44,20 @@ private:
     // Backward-compatible primary reading.
     int proximityValue = 0;
 
-    // Future-proof channel payload: derived classes can publish one or more
-    // channels without changing the callback signature.
-    std::vector<float> proximityChannels{};
+    // Future-proof channel payload, heavily optimised to avert std::vector heap allocations
+    // on high-frequency callback ticks (O(1) memory, bounded at 4 channels).
+    InlineChannels proximityChannels{};
 
 public:
     GestureEvent() = default;
     
-    GestureEvent(ProximityState s, GestureDir d, int pVal = 0, std::vector<float> channels = {})
-        : state(s), direction(d), proximityValue(pVal), proximityChannels(std::move(channels)) {}
+    GestureEvent(ProximityState s, GestureDir d, int pVal = 0, InlineChannels channels = {})
+        : state(s), direction(d), proximityValue(pVal), proximityChannels(channels) {}
 
     ProximityState getState() const { return state; }
     GestureDir getDirection() const { return direction; }
     int getProximityValue() const { return proximityValue; }
-    const std::vector<float>& getProximityChannels() const { return proximityChannels; }
+    const InlineChannels& getProximityChannels() const { return proximityChannels; }
 };
 
 class IProximitySensor {

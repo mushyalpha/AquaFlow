@@ -51,7 +51,8 @@
   - *Status note (2026-04-15): Evaluated codebase: refactored GestureEvent and CallbackStats structures to explicitly make fields private and exposed matching getter/setter interfaces. 100% of authored classes/structs are fully encapsulated.*
 - [x] **All data access is through getters, setters, or callbacks only.** No direct member access from outside the class.
   - *Status note (2026-04-15): Audit complete. All custom C++ classes use strict getter/setter/callback encapsulation. The only direct field access is on standard POSIX C structs (itimerspec, timespec) required for kernel system calls, which are exempt from OOP rules.*
-- [ ] **Internal data structures are efficient** - e.g., consider using `std::atomic` for shared sensor readings, ring buffers or double-buffering for high-frequency data.
+- [x] **Internal data structures are efficient** - e.g., consider using `std::atomic` for shared sensor readings, ring buffers or double-buffering for high-frequency data.
+  - *Status note (2026-04-15): Audit complete. Replaced `std::vector` inside `GestureEvent` with a stack-allocated bounded container (`InlineChannels`) to eliminate high-frequency heap allocations during sensor ticks. Atomics and bounded buffers are used across threaded components.*
 - [ ] **`main.cpp` contains only initialisation code** - no real-time logic, no loops, no processing. After init, it simply blocks on `sigwait()`.
   -  **Current state:** `main.cpp` already does this correctly with `sigwait()` - confirm it stays this way.
 - [ ] **All callbacks are transmitted through `std::function` or abstract interface** - not via raw global function pointers.
