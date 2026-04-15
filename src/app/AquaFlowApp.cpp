@@ -9,7 +9,7 @@ AquaFlowApp::AquaFlowApp(IProximitySensor& gestureSensor, IPump& pump, IFlowMete
       pump_(pump),
       flowMeter_(flowMeter),
       lcd_(lcd),
-      controller_(gestureSensor_, pump_, flowMeter_, HOLD_TIME_SECONDS, TARGET_VOLUME_ML),
+      controller_(gestureSensor_, pump_, flowMeter_),
       loopTimer_(LOOP_INTERVAL_MS)
 {
 }
@@ -23,6 +23,8 @@ void AquaFlowApp::start() {
         std::ostringstream row1;
         if (state == "FILLING") {
             row1 << "Vol: " << std::fixed << std::setprecision(1) << vol << " ml";
+        } else if (state == "SELECT SIZE") {
+            row1 << "Swp L/D/R for ml";
         } else {
             row1 << "Bottles: " << bottles;
         }
@@ -33,10 +35,12 @@ void AquaFlowApp::start() {
     loopTimer_.registerCallback([this]() {
         controller_.tick();
         
-        // Push high-frequency fluid volume update dynamically
-        std::ostringstream row;
-        row << "Vol: " << std::fixed << std::setprecision(1) << flowMeter_.getVolumeML() << " ml";
-        lcd_.print(1, row.str());
+        // Push high-frequency fluid volume update dynamically ONLY if filling
+        if (controller_.getStateName() == "FILLING") {
+            std::ostringstream row;
+            row << "Vol: " << std::fixed << std::setprecision(1) << flowMeter_.getVolumeML() << " ml";
+            lcd_.print(1, row.str());
+        }
     });
 
     // 3. Commence processing

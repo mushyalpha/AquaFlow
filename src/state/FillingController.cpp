@@ -8,14 +8,10 @@ using Clock = std::chrono::steady_clock;
 
 FillingController::FillingController(IProximitySensor& gestureSensor,
                                      IPump&           pump,
-                                     IFlowMeter&      flowMeter,
-                                     int             holdTimeSeconds,
-                                     double          targetVolumeML)
+                                     IFlowMeter&      flowMeter)
     : gestureSensor_(gestureSensor),
       pump_(pump),
       flowMeter_(flowMeter),
-      holdTimeSeconds_(holdTimeSeconds),
-      targetVolumeML_(targetVolumeML),
       state_(SystemState::WAITING),
       holdStartTime_(),
       bottleCount_(0),
@@ -32,6 +28,10 @@ FillingController::FillingController(IProximitySensor& gestureSensor,
         } else if (event.getState() == ProximityState::PROXIMITY_CLEARED) {
             bottlePresent_.store(false, std::memory_order_release);
         }
+
+        if (event.getDirection() != GestureDir::NONE) {
+            gestureDirection_.store(event.getDirection(), std::memory_order_release);
+        }
     });
 }
 
@@ -43,24 +43,32 @@ void FillingController::tick() {
 
     // ── WAITING: no cup detected yet ─────────────────────────────────────────
     case SystemState::WAITING: {
+        // Clear any lingering gestures from before cup was placed
+        gestureDirection_.store(GestureDir::NONE, std::memory_order_release);
+
         // acquire-load pairs with the release-store in the proximity callback
         if (bottlePresent_.load(std::memory_order_acquire)) {
-            holdStartTime_ = Clock::now();
-            state_ = SystemState::CONFIRMATION;
+            state_ = SystemState::AWAIT_SELECTION;
         }
         break;
     }
 
-    // ── CONFIRMATION: cup must stay present for holdTimeSeconds_ ─────────────
-    case SystemState::CONFIRMATION: {
+    // ── AWAIT_SELECTION: cup present, waiting for left/down/right swipe ──────
+    case SystemState::AWAIT_SELECTION: {
         if (!bottlePresent_.load(std::memory_order_acquire)) {
-            // Cup removed before timer expired — reset
+            // Cup removed before selection
             state_ = SystemState::WAITING;
             break;
         }
 
-        if (getHoldElapsed() >= holdTimeSeconds_) {
-            // Confirmed — reset meter and start pump
+        GestureDir dir = gestureDirection_.exchange(GestureDir::NONE, std::memory_order_acquire);
+        
+        if (dir == GestureDir::LEFT || dir == GestureDir::DOWN || dir == GestureDir::RIGHT) {
+            if (dir == GestureDir::LEFT)       targetVolumeML_ = 200.0;
+            else if (dir == GestureDir::DOWN)  targetVolumeML_ = 400.0;
+            else /* RIGHT */                   targetVolumeML_ = 600.0;
+
+            // Gesture confirmed — reset meter and start pump
             flowMeter_.resetCount();
             pump_.turnOn();
             state_ = SystemState::FILLING;
@@ -70,6 +78,13 @@ void FillingController::tick() {
 
     // ── FILLING: pump running, counting flow pulses ───────────────────────────
     case SystemState::FILLING: {
+        if (!bottlePresent_.load(std::memory_order_acquire)) {
+            // Emergency Abort: Cup removed during fill
+            pump_.turnOff();
+            state_ = SystemState::WAITING;
+            break;
+        }
+
         double currentML = flowMeter_.getVolumeML();
         if (currentML >= targetVolumeML_) {
             pump_.turnOff();
@@ -81,8 +96,10 @@ void FillingController::tick() {
 
     // ── FILL_COMPLETE: pump off, reset for next cup ───────────────────────────
     case SystemState::FILL_COMPLETE: {
-        flowMeter_.resetCount();
-        state_ = SystemState::WAITING;
+        if (!bottlePresent_.load(std::memory_order_acquire)) {
+            flowMeter_.resetCount();
+            state_ = SystemState::WAITING;
+        }
         break;
     }
     }
@@ -101,20 +118,12 @@ SystemState FillingController::getState() const {
 
 std::string FillingController::getStateName() const {
     switch (state_) {
-        case SystemState::WAITING:       return "WAITING";
-        case SystemState::CONFIRMATION:  return "CONFIRMATION";
-        case SystemState::FILLING:       return "FILLING";
-        case SystemState::FILL_COMPLETE: return "FILL_COMPLETE";
-        default:                         return "UNKNOWN";
+        case SystemState::WAITING:         return "WAITING";
+        case SystemState::AWAIT_SELECTION: return "SELECT SIZE";
+        case SystemState::FILLING:         return "FILLING";
+        case SystemState::FILL_COMPLETE:   return "COMPLETE";
+        default:                           return "UNKNOWN";
     }
-}
-
-double FillingController::getHoldElapsed() const {
-    if (state_ != SystemState::CONFIRMATION && state_ != SystemState::FILLING) {
-        return 0.0;
-    }
-    auto now = Clock::now();
-    return std::chrono::duration<double>(now - holdStartTime_).count();
 }
 
 double FillingController::getCurrentVolumeML() const {
@@ -122,16 +131,9 @@ double FillingController::getCurrentVolumeML() const {
 }
 
 double FillingController::getTargetVolumeML() const {
-    return targetVolumeML_;
+    return targetVolumeML_.load();
 }
 
 int FillingController::getBottleCount() const {
     return bottleCount_;
 }
-
-#ifdef AQUAFLOW_TESTING
-void FillingController::forceHoldElapsedForTest(double secondsElapsed) {
-    holdStartTime_ = Clock::now() - std::chrono::duration_cast<Clock::duration>(
-        std::chrono::duration<double>(secondsElapsed));
-}
-#endif

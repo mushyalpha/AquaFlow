@@ -42,8 +42,7 @@ int main() {
     AquaFlowApp app(gestureSensor, pump, flowMeter, lcd);
     
     Logger::info("=== AquaFlow Filling Machine Started ===");
-    Logger::info("Hold time     : " + std::to_string(HOLD_TIME_SECONDS) + " s");
-    Logger::info("Target volume : " + std::to_string(TARGET_VOLUME_ML) + " ml");
+    Logger::info("Mode          : Dynamic Gesture Selection (L=200/D=400/R=600 ml)");
     Logger::info("Gesture sensor: I2C bus " + std::to_string(GESTURE_I2C_BUS) + ", addr 0x39");
 
     app.start();

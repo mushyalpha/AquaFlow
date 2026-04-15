@@ -12,14 +12,14 @@
 /**
  * @brief System states for the filling cycle.
  *
- * WAITING       — No bottle detected, system idle
- * CONFIRMATION  — Proximity event received, waiting for stable hold
- * FILLING       — Pump ON, counting flow pulses
- * FILL_COMPLETE — Target volume reached, pump OFF, resetting
+ * WAITING         — No bottle detected, system idle
+ * AWAIT_SELECTION — Proximity established, waiting for directional swipe
+ * FILLING         — Pump ON, counting flow pulses
+ * FILL_COMPLETE   — Target volume reached, pump OFF, resetting
  */
 enum class SystemState {
     WAITING,
-    CONFIRMATION,
+    AWAIT_SELECTION,
     FILLING,
     FILL_COMPLETE
 };
@@ -40,14 +40,10 @@ public:
      * @param gestureSensor    Reference to a proximity/gesture source abstraction.
      * @param pump             Reference to a pump actuator abstraction.
      * @param flowMeter        Reference to a flow measurement abstraction.
-     * @param holdTimeSeconds  How long proximity must be held to confirm a cup.
-     * @param targetVolumeML   Target fill volume in millilitres.
      */
     FillingController(IProximitySensor& gestureSensor,
                       IPump&           pump,
-                      IFlowMeter&      flowMeter,
-                      int             holdTimeSeconds,
-                      double          targetVolumeML);
+                      IFlowMeter&      flowMeter);
 
     /**
      * @brief Run one cycle of the state machine.
@@ -75,9 +71,6 @@ public:
     /** @brief Get a human-readable name for the current state. */
     std::string getStateName() const;
 
-    /** @brief Get seconds elapsed in the hold timer (CONFIRMATION state). */
-    double getHoldElapsed() const;
-
     /** @brief Get the current volume dispensed in ml. */
     double getCurrentVolumeML() const;
 
@@ -87,20 +80,14 @@ public:
     /** @brief Get the total number of bottles filled this session. */
     int getBottleCount() const;
 
-#ifdef AQUAFLOW_TESTING
-    /** @brief Test seam for unit tests to fast-forward confirmation timing. */
-    void forceHoldElapsedForTest(double secondsElapsed);
-#endif
-
 private:
     // Hardware references
     IProximitySensor& gestureSensor_;
     IPump& pump_;
     IFlowMeter& flowMeter_;
 
-    // Settings
-    int    holdTimeSeconds_;
-    double targetVolumeML_;
+    // Target Volume, determined dynamically by user gesture
+    std::atomic<double> targetVolumeML_{0.0};
 
     // State
     SystemState state_;
@@ -117,6 +104,11 @@ private:
      * callback thread — std::atomic ensures no data race.
      */
     std::atomic<bool> bottlePresent_{false};
+
+    /**
+     * @brief Thread-safe flag capturing the last directional gesture.
+     */
+    std::atomic<GestureDir> gestureDirection_{GestureDir::NONE};
 
     MonitorCallback monitorCallback_;  ///< Optional observer, called after each tick.
 };

@@ -194,6 +194,18 @@ public:
         }
     }
 
+    void emitGesture(GestureDir dir) const {
+        if (eventCallback_) {
+            eventCallback_({ProximityState::PROXIMITY_TRIGGERED, dir, 71, {71.0f}});
+        }
+    }
+
+    void emitCleared() const {
+        if (eventCallback_) {
+            eventCallback_({ProximityState::PROXIMITY_CLEARED, GestureDir::NONE, 71, {71.0f}});
+        }
+    }
+
 private:
     IProximitySensor::EventCallback eventCallback_;
     IProximitySensor::ErrorCallback errorCallback_;
@@ -215,6 +227,18 @@ public:
         }
     }
 
+    void emitGesture(GestureDir dir) const {
+        if (eventCallback_) {
+            eventCallback_({ProximityState::PROXIMITY_TRIGGERED, dir, 71, {71.0f, 69.0f, 74.0f}});
+        }
+    }
+
+    void emitCleared() const {
+        if (eventCallback_) {
+            eventCallback_({ProximityState::PROXIMITY_CLEARED, GestureDir::NONE, 71, {71.0f, 69.0f, 74.0f}});
+        }
+    }
+
 private:
     IProximitySensor::EventCallback eventCallback_;
     IProximitySensor::ErrorCallback errorCallback_;
@@ -224,7 +248,7 @@ template <typename SensorType>
 void runControllerScenario(SensorType& sensor) {
     PumpSpy pump;
     FlowMeterSpy flow;
-    FillingController controller(sensor, pump, flow, 0, 100.0);
+    FillingController controller(sensor, pump, flow);
 
     require(controller.getState() == SystemState::WAITING,
             "Controller should start in WAITING");
@@ -232,23 +256,28 @@ void runControllerScenario(SensorType& sensor) {
     sensor.emitTriggered();
 
     controller.tick();
-    require(controller.getState() == SystemState::CONFIRMATION,
-            "Controller should move to CONFIRMATION when cup is detected");
+    require(controller.getState() == SystemState::AWAIT_SELECTION,
+            "Controller should move to AWAIT_SELECTION when cup is detected");
+
+    sensor.emitGesture(GestureDir::DOWN); // 400ml
 
     controller.tick();
     require(controller.getState() == SystemState::FILLING,
-            "Controller should move to FILLING after hold timer");
+            "Controller should move to FILLING after gesture");
     require(pump.turnOnCalls() == 1, "Pump should be turned on exactly once");
+    require(controller.getTargetVolumeML() == 400.0, "Volume should be dynamically set by down gesture");
 
-    flow.setVolumeML(100.0);
+    flow.setVolumeML(400.0);
     controller.tick();
     require(controller.getState() == SystemState::FILL_COMPLETE,
             "Controller should move to FILL_COMPLETE when target volume is reached");
     require(pump.turnOffCalls() == 1, "Pump should be turned off exactly once");
 
+    sensor.emitCleared();
+
     controller.tick();
     require(controller.getState() == SystemState::WAITING,
-            "Controller should reset back to WAITING");
+            "Controller should reset back to WAITING when cup removed");
     require(controller.getBottleCount() == 1,
             "Bottle counter should increment after a completed fill");
 }
