@@ -203,8 +203,10 @@
 - [ ]  **No revision control history** - only one commit at the very end.
 - [ ]  **Only one team member committing** - all members must have visible contributions.
 - [ ]  **Trivial project scope** - minimal code, mostly PR fluff (not a concern for AquaFlow, but worth confirming sufficient code depth).
-- [ ]  **Not plotting values on screen** - technical requirements explicitly state the system must measure values AND *plot them*.
-- [ ]  **No mouse interaction** - technical requirements explicitly state the UI must allow *mouse interaction* to change parameters.
+- [x]  **Not plotting values on screen** - technical requirements explicitly state the system must measure values AND *plot them*.
+  - *Status note (2026-05-10): Qt6 GUI (`filling_machine_gui`) uses QCustomPlot to display a scrolling real-time graph of dispensed volume (ml) vs time at 25 fps. See `src/gui/AquaFlowWindow.cpp`.*
+- [x]  **No mouse interaction** - technical requirements explicitly state the UI must allow *mouse interaction* to change parameters.
+  - *Status note (2026-05-10): Qt6 GUI provides three QPushButtons (Cycle Size, Confirm Size, Reset) for mouse-driven parameter control. QCustomPlot additionally supports mouse drag/zoom on the plot axes. See `src/gui/AquaFlowWindow.cpp`.*
 - [ ]  **Not running as a standalone embedded app** - the system MUST boot up automatically as a standalone application on the Raspberry Pi without manual terminal interference.
 
 ---
