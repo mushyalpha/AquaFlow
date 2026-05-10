@@ -6,9 +6,10 @@ FlowFizzy is a smart, fully-automated touchless water dispenser built on the Ras
 
 For SOLID compliance, `FillingController` now depends on behavioral interfaces (`IProximitySensor`, `IPump`, `IFlowMeter`) instead of concrete drivers. We considered a template-based variant for zero-overhead static polymorphism, but chose runtime interfaces for clearer architecture and easier assessment traceability; at a 100 ms control interval, virtual dispatch overhead is negligible.
 
-### [Watch the End-to-End Demo on YouTube](#) <!-- TODO: Add YT Link -->
+### [Watch the End-to-End Demo on YouTube](https://www.youtube.com/@FizzyFlow-q8b/shorts)
 ### [Read our Project Tech Write-up on RS Design Spark](#) <!-- TODO: Add Blog Link -->
 ### [Follow us on Instagram](https://www.instagram.com/flow_fizzy/)
+### [Follow us on TikTok](https://www.tiktok.com/@aquafl0wx)
 
 ## Hardware Connections (Raspberry Pi Pinout)
 
