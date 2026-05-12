@@ -139,3 +139,6 @@ sudo ./filling_machine
 
 ## Licensing
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+* Special thanks to the community at [Arduino Libraries](https://www.arduinolibraries.info/) for providing helpful open-source code logic and inspiration for our hardware drivers and sensor integrations!
