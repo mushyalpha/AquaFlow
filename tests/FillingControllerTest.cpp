@@ -26,34 +26,34 @@ protected:
 };
 
 TEST_F(FillingControllerTest, InitialStateIsWaiting) {
-    EXPECT_EQ(fc.getState(), SystemState::WAITING);
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
     EXPECT_EQ(fc.getBottleCount(), 0);
 }
 
 TEST_F(FillingControllerTest, TransitionToAwaitSelectionOnProximity) {
-    EXPECT_EQ(fc.getState(), SystemState::WAITING);
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
 
     simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
     fc.tick();
 
-    EXPECT_EQ(fc.getState(), SystemState::AWAIT_SELECTION);
+    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
 }
 
 TEST_F(FillingControllerTest, ReturnsToWaitingIfProximityClearedPrematurely) {
     simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
     fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::AWAIT_SELECTION);
+    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
 
     simulateProximity(ProximityState::PROXIMITY_CLEARED);
     fc.tick();
 
-    EXPECT_EQ(fc.getState(), SystemState::WAITING);
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
 }
 
 TEST_F(FillingControllerTest, CompletesFullCycleSuccessfully) {
     simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
     fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::AWAIT_SELECTION);
+    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
 
     simulateGesture(GestureDir::DOWN); // 400ml
 
@@ -70,5 +70,5 @@ TEST_F(FillingControllerTest, CompletesFullCycleSuccessfully) {
     EXPECT_EQ(fc.getBottleCount(), 1);
 
     fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::WAITING);
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
 }
