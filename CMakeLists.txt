@@ -143,6 +143,7 @@ target_link_libraries(pump_flow_duo_test gpiodcxx pthread)
 add_executable(lsp_stress_test
     tests/LiskovSubstitutionStressTest.cpp
     src/state/FillingController.cpp
+    src/utils/Logger.cpp
 )
 target_include_directories(lsp_stress_test PRIVATE include src)
 
