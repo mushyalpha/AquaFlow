@@ -9,7 +9,7 @@ For SOLID compliance, `FillingController` now depends on behavioral interfaces (
 ### [Watch the End-to-End Demo on YouTube](https://www.youtube.com/@FizzyFlow-q8b/shorts)
 ### [Read our Project Tech Write-up on RS Design Spark](#) <!-- TODO: Add Blog Link -->
 ### [Follow us on Instagram](https://www.instagram.com/flow_fizzy/)
-### [Follow us on TikTok](https://www.tiktok.com/@aquafl0wx)
+### [Follow us on TikTok — 12 total likes](https://www.tiktok.com/@aquafl0wx)
 
 ## Hardware Connections (Raspberry Pi Pinout)
 
@@ -105,10 +105,10 @@ If you are starting from a completely blank Raspberry Pi OS (Bookworm or newer),
 4. **Clone the Repo:** `git clone https://github.com/mushyalpha/FlowFizzy.git && cd FlowFizzy`
 
 ### 2. Prerequisites
-Run the following exactly as listed to install C++ compilers, CMake, and the standard GPIO driver library:
+Run the following exactly as listed to install C++ compilers, CMake, the standard GPIO driver library, and the GUI dependencies required for the assessed build:
 ```bash
 sudo apt-get update
-sudo apt-get install -y cmake g++ libgpiod-dev libgpiod-doc
+sudo apt-get install -y cmake g++ libgpiod-dev libgpiod-doc qt6-base-dev libqcustomplot-dev
 ```
 
 ### 3. Build Instructions
@@ -117,6 +117,8 @@ mkdir build && cd build
 cmake ..
 make -j$(nproc)
 ```
+
+> **Important for marking:** the assessed interface is `filling_machine_gui`, because it provides the real-time plot and mouse interaction required by the course brief. If CMake reports `Qt6 NOT found` or `filling_machine_gui` is missing after the build, the GUI dependencies were not installed correctly and the marking-critical target has not been built.
 
 ### 4. Running Tests
 You can automatically run all unit tests from the `build` directory:
@@ -131,6 +133,12 @@ sudo ./hardware_trio_test
 ```
 
 ### 5. Running the Application
+For the marked demonstration, run the GUI target:
+```bash
+sudo ./filling_machine_gui
+```
+
+If you need the hardware-only console build for debugging over SSH, you can still run:
 ```bash
 sudo ./filling_machine
 ```

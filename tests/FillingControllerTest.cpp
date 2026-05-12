@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <thread>
+
+#include "PinConfig.h"
 #include "hardware/FlowMeter.h"
 #include "hardware/GestureSensor.h"
 #include "hardware/PumpController.h"
@@ -20,29 +24,37 @@ protected:
         gs.emitEventForTest({state, GestureDir::NONE, 200});
     }
 
-    void simulateGesture(GestureDir dir) {
-        gs.emitEventForTest({ProximityState::PROXIMITY_TRIGGERED, dir, 200});
+    void waitForCupConfirmation() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(CUP_CONFIRM_MS + 50));
     }
 };
 
-TEST_F(FillingControllerTest, InitialStateIsWaiting) {
-    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
+TEST_F(FillingControllerTest, InitialStateIsSelectingSize) {
+    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
     EXPECT_EQ(fc.getBottleCount(), 0);
+    EXPECT_EQ(fc.getTargetVolumeML(), 0.0);
+    EXPECT_EQ(fc.getSizeName(), "SMALL");
 }
 
-TEST_F(FillingControllerTest, TransitionToAwaitSelectionOnProximity) {
+TEST_F(FillingControllerTest, LongPressConfirmsSelectionAndWaitsForCup) {
+    fc.onShortPress(); // SMALL -> MEDIUM
+    EXPECT_EQ(fc.getSizeName(), "MEDIUM");
+
+    fc.onLongPress();
+    fc.tick();
+
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
+    EXPECT_EQ(fc.getTargetVolumeML(), 400.0);
+}
+
+TEST_F(FillingControllerTest, ReturnsToWaitingIfProximityClearedDuringConfirmation) {
+    fc.onLongPress();
+    fc.tick();
     EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
 
     simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
     fc.tick();
-
-    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
-}
-
-TEST_F(FillingControllerTest, ReturnsToWaitingIfProximityClearedPrematurely) {
-    simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
-    fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
+    EXPECT_EQ(fc.getState(), SystemState::CONFIRMING);
 
     simulateProximity(ProximityState::PROXIMITY_CLEARED);
     fc.tick();
@@ -51,16 +63,20 @@ TEST_F(FillingControllerTest, ReturnsToWaitingIfProximityClearedPrematurely) {
 }
 
 TEST_F(FillingControllerTest, CompletesFullCycleSuccessfully) {
+    fc.onShortPress(); // SMALL -> MEDIUM (400 ml)
+    fc.onLongPress();
+    fc.tick();
+    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
+    EXPECT_EQ(fc.getTargetVolumeML(), 400.0);
+
     simulateProximity(ProximityState::PROXIMITY_TRIGGERED);
     fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
+    EXPECT_EQ(fc.getState(), SystemState::CONFIRMING);
 
-    simulateGesture(GestureDir::DOWN); // 400ml
-
+    waitForCupConfirmation();
     fc.tick();
     EXPECT_EQ(fc.getState(), SystemState::FILLING);
     EXPECT_TRUE(pump.isRunning());
-    EXPECT_EQ(fc.getTargetVolumeML(), 400.0);
 
     flow.injectPulseCountForTest(400);
 
@@ -69,6 +85,7 @@ TEST_F(FillingControllerTest, CompletesFullCycleSuccessfully) {
     EXPECT_FALSE(pump.isRunning());
     EXPECT_EQ(fc.getBottleCount(), 1);
 
+    simulateProximity(ProximityState::PROXIMITY_CLEARED);
     fc.tick();
-    EXPECT_EQ(fc.getState(), SystemState::WAITING_FOR_CUP);
+    EXPECT_EQ(fc.getState(), SystemState::SELECTING_SIZE);
 }
