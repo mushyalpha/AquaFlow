@@ -1,8 +1,8 @@
-# FlowFizzy Water Dispenser
+# AquaFlow Water Dispenser
 
-![FlowFizzy Logo](images/fizzyflow_logo.png)
+![AquaFlow Logo](images/fizzyflow_logo.png)
 
-FlowFizzy is a smart, fully-automated touchless water dispenser built on the Raspberry Pi using C++. It utilizes intelligent hardware monitoring to safely dispense exact volumes of water using proximity detection.
+AquaFlow is a smart, fully-automated touchless water dispenser built on the Raspberry Pi using C++. It utilizes intelligent hardware monitoring to safely dispense exact volumes of water using proximity detection.
 
 For SOLID compliance, `FillingController` now depends on behavioral interfaces (`IProximitySensor`, `IPump`, `IFlowMeter`) instead of concrete drivers. We considered a template-based variant for zero-overhead static polymorphism, but chose runtime interfaces for clearer architecture and easier assessment traceability; at a 100 ms control interval, virtual dispatch overhead is negligible.
 
@@ -105,10 +105,16 @@ If you are starting from a completely blank Raspberry Pi OS (Bookworm or newer),
 4. **Clone the Repo:** `git clone https://github.com/mushyalpha/FlowFizzy.git && cd FlowFizzy`
 
 ### 2. Prerequisites
-Run the following exactly as listed to install C++ compilers, CMake, the standard GPIO driver library, and the GUI dependencies required for the assessed build:
+Run the following commands exactly as listed. This will safely install C++ compilers, CMake, the Qt6 GUI dependencies, and **force-install the stable Version 1.6 of libgpiod** (required for the hardware drivers) directly from the Debian archives:
 ```bash
 sudo apt-get update
-sudo apt-get install -y cmake g++ libgpiod-dev libgpiod-doc qt6-base-dev libqcustomplot-dev
+sudo apt-get install -y cmake g++ qt6-base-dev libqt6printsupport6-dev libqcustomplot-qt6-dev wget
+
+# Install stable libgpiod v1 (V2 is incompatible with legacy hardware driver interfaces)
+cd ~
+wget http://deb.debian.org/debian/pool/main/libg/libgpiod/libgpiod2_1.6.3-1+b3_arm64.deb
+wget http://deb.debian.org/debian/pool/main/libg/libgpiod/libgpiod-dev_1.6.3-1+b3_arm64.deb
+sudo dpkg -i libgpiod2_1.6.3-1+b3_arm64.deb libgpiod-dev_1.6.3-1+b3_arm64.deb
 ```
 
 ### 3. Build Instructions

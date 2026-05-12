@@ -1,6 +1,6 @@
-# FlowFizzy Website
+# AquaFlow Website
 
-This folder contains the static website for the FlowFizzy project — a touchless water dispenser built from scratch.
+This folder contains the static website for the AquaFlow project — a touchless water dispenser built from scratch.
 
 ## Files
 
