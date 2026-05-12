@@ -60,7 +60,7 @@ if(Qt6_FOUND)
 
     target_link_libraries(filling_machine_gui
         Qt6::Widgets
-        qcustomplot
+        qcustomplot-qt6
         gpiodcxx
         pthread
     )
