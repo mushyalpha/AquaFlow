@@ -14,7 +14,8 @@ For SOLID compliance, `FillingController` now depends on behavioral interfaces (
 ## Hardware Connections (Raspberry Pi Pinout)
 
 Below is the definitive hardware wiring guide to connect the sensors and pump to the Raspberry Pi. For a visual representation, please refer to our physical circuit diagram:
-![Drink Dispensing View](images/physical_layout_drink.png)
+![Drink Dispensing View](images/flowfizzy_with_led_2.jpg)
+![Hardware Setup View](images/flowfizzy_with_led_1.jpg)
 
 > **Note:** Always ensure the Raspberry Pi is powered OFF when altering hardware connections. 
 
@@ -70,10 +71,13 @@ graph TD
 ---
 
 ## Division of Labor
+
+*Both team members contributed equally to the hardware integration and software development of the system.*
+
 | Team Member | Primary Responsibilities |
 | :--- | :--- |
-| **Abdullah Alkabbawi** | Real-Time Architecture, State Machine Logic, Hardware Integration, Multithreading. |
-| **Bonolo Masima** | Hardware Specifications, Documentation (ADRs), CAD Design, Integration Testing. |
+| **Abdullah Alkabbawi** | Hardware Integration, Software Development (Hardware Drivers & State Machine), 3D Printing & CAD Design. |
+| **Bonolo Masima** | Hardware Integration, Software Development (Architecture & Testing Skeleton), Documentation (ADRs) & Project Setup. |
 
 ---
 

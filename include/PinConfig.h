@@ -6,6 +6,9 @@
 // DC Water Pump (via TIP122 transistor)
 constexpr int PUMP_PIN = 18;   // GPIO18 (BCM)
 
+// Filling indicator LED — ON while pump is running
+constexpr int FILL_LED_PIN = 24;  // GPIO24 — Physical Pin 18
+
 // YF-S401 Flow Meter
 // Wiring: Red→Pin2(5V)  Black→Pin9(GND)  Yellow→Pin11(GPIO17)
 // Signal is open-collector; internal pull-up enabled in FlowMeter::setupGpio()

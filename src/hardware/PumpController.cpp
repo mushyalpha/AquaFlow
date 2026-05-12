@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include "utils/Logger.h"
+#include "PinConfig.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,13 @@ bool PumpController::init() {
                 .set_direction(gpiod::line::direction::OUTPUT)
                 .set_output_value(offValue()));   // start de energised
 
+        // Configure the filling LED pin as output, idle = OFF
+        lineCfg.add_line_settings(
+            FILL_LED_PIN,
+            gpiod::line_settings()
+                .set_direction(gpiod::line::direction::OUTPUT)
+                .set_output_value(gpiod::line::value::INACTIVE));
+
         auto builder = chip_->prepare_request();
         builder.set_consumer("pump_controller");
         builder.set_line_config(lineCfg);
@@ -51,8 +59,9 @@ bool PumpController::init() {
 
 void PumpController::shutdown() {
     if (initialised_ && request_) {
-        // Ensure pump is off before releasing GPIO
+        // Ensure pump and LED are off before releasing GPIO
         request_->set_value(pumpPin_, offValue());
+        request_->set_value(FILL_LED_PIN, gpiod::line::value::INACTIVE);
     }
     running_     = false;
     initialised_ = false;
@@ -67,6 +76,7 @@ void PumpController::turnOn() {
     if (!initialised_ || running_) return;
     if (request_) {
         request_->set_value(pumpPin_, onValue());
+        request_->set_value(FILL_LED_PIN, gpiod::line::value::ACTIVE);  // LED ON
     }
     running_ = true;
     Logger::info("Pump started!");
@@ -76,6 +86,7 @@ void PumpController::turnOff() {
     if (!initialised_ || !running_) return;
     if (request_) {
         request_->set_value(pumpPin_, offValue());
+        request_->set_value(FILL_LED_PIN, gpiod::line::value::INACTIVE);  // LED OFF
     }
     running_ = false;
     Logger::info("Pump stopped.");
