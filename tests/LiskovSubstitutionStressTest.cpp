@@ -250,13 +250,13 @@ void runControllerScenario(SensorType& sensor) {
     FlowMeterSpy flow;
     FillingController controller(sensor, pump, flow);
 
-    require(controller.getState() == SystemState::WAITING,
+    require(controller.getState() == SystemState::WAITING_FOR_CUP,
             "Controller should start in WAITING");
 
     sensor.emitTriggered();
 
     controller.tick();
-    require(controller.getState() == SystemState::AWAIT_SELECTION,
+    require(controller.getState() == SystemState::SELECTING_SIZE,
             "Controller should move to AWAIT_SELECTION when cup is detected");
 
     sensor.emitGesture(GestureDir::DOWN); // 400ml
@@ -276,7 +276,7 @@ void runControllerScenario(SensorType& sensor) {
     sensor.emitCleared();
 
     controller.tick();
-    require(controller.getState() == SystemState::WAITING,
+    require(controller.getState() == SystemState::WAITING_FOR_CUP,
             "Controller should reset back to WAITING when cup removed");
     require(controller.getBottleCount() == 1,
             "Bottle counter should increment after a completed fill");
