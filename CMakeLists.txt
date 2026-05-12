@@ -39,7 +39,7 @@ target_link_libraries(filling_machine
 #
 # The headless `filling_machine` target above is NOT affected — both coexist.
 
-find_package(Qt6 COMPONENTS Widgets QUIET)
+find_package(Qt6 COMPONENTS Widgets PrintSupport QUIET)
 if(Qt6_FOUND)
     set(CMAKE_AUTOMOC ON)   # Qt Meta-Object Compiler for Q_OBJECT classes
 
@@ -60,6 +60,7 @@ if(Qt6_FOUND)
     find_package(QCustomPlotQt6 REQUIRED)
     target_link_libraries(filling_machine_gui
         Qt6::Widgets
+        Qt6::PrintSupport
         QCustomPlotQt6::QCustomPlotQt6
         gpiodcxx
         pthread
