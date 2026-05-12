@@ -57,10 +57,10 @@ if(Qt6_FOUND)
     )
 
     target_include_directories(filling_machine_gui PRIVATE include src)
-
+    find_package(QCustomPlotQt6 REQUIRED)
     target_link_libraries(filling_machine_gui
         Qt6::Widgets
-        qcustomplot-qt6
+        QCustomPlotQt6::QCustomPlotQt6
         gpiodcxx
         pthread
     )
