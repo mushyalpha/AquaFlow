@@ -28,10 +28,31 @@
 // The Qt event loop (app.exec()) replaces the sigwait() block in the headless
 // main.cpp. All real-time threads continue to run in the background.
  
+#include <QTimer>
+
+std::atomic<bool> g_quitRequested{false};
+
+// Safe POSIX signal handler — sets an atomic flag
+void signalHandler(int) {
+    g_quitRequested.store(true, std::memory_order_relaxed);
+}
+
 int main(int argc, char* argv[]) {
+    // Install signal handlers for Ctrl+C
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
 
     // Qt application must be created first  
     QApplication app(argc, argv);
+
+    // Monitor for quit signal safely in the main Qt thread
+    QTimer quitTimer;
+    QObject::connect(&quitTimer, &QTimer::timeout, [&app]() {
+        if (g_quitRequested.load(std::memory_order_relaxed)) {
+            app.quit();
+        }
+    });
+    quitTimer.start(200);
 
     // Construct hardware drivers
     GestureSensor    gestureSensor(GESTURE_I2C_BUS, GESTURE_I2C_ADDR, GESTURE_THRESHOLD);
