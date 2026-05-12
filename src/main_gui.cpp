@@ -19,31 +19,27 @@
 #include <unistd.h>
 #include <termios.h>
 
-// ─────────────────────────────────────────────────────────────────────────────
 // This is the Qt GUI entry point for AquaFlow.
-//
 // It combines the existing headless real-time architecture (timerfd-driven
 // state machine, GPIO interrupts, I2C sensors) with a Qt6 graphical front-end
-// that satisfies the two "deal-breaker" marking criteria:
-//   1. Plotting values on screen   (QCustomPlot real-time volume graph)
-//   2. Mouse interaction           (QPushButtons for size selection / reset)
-//
+// with:
+// 1. Plotting values on screen (QCustomPlot real-time volume graph)
+// 2. Mouse interaction (QPushButtons for size selection / reset)
 // The Qt event loop (app.exec()) replaces the sigwait() block in the headless
-// main.cpp.  All real-time threads continue to run in the background.
-// ─────────────────────────────────────────────────────────────────────────────
-
+// main.cpp. All real-time threads continue to run in the background.
+ 
 int main(int argc, char* argv[]) {
 
-    // ── Qt application must be created first ─────────────────────────────────
+    // Qt application must be created first  
     QApplication app(argc, argv);
 
-    // ── Construct hardware drivers ───────────────────────────────────────────
+    // Construct hardware drivers
     GestureSensor    gestureSensor(GESTURE_I2C_BUS, GESTURE_I2C_ADDR, GESTURE_THRESHOLD);
     PumpController   pump(GPIO_CHIP_NO, PUMP_PIN);
     FlowMeter        flowMeter(GPIO_CHIP_NO, FLOW_PIN, static_cast<float>(ML_PER_PULSE));
     LcdDisplay       lcd(LCD_I2C_BUS, LCD_I2C_ADDRESS);
 
-    // ── Initialise hardware ──────────────────────────────────────────────────
+    // Initialise hardware
     if (!gestureSensor.init()) {
         Logger::error("Failed to initialise GestureSensor");
         return 1;
@@ -65,7 +61,7 @@ int main(int argc, char* argv[]) {
 
     Logger::info("=== AquaFlow Filling Machine (GUI Mode) ===");
 
-    // ── State machine + monitor ──────────────────────────────────────────────
+    // State machine + monitor
     FillingController controller(gestureSensor, pump, flowMeter);
     Monitor           monitor;
 
@@ -105,7 +101,7 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    // ── Timer: drives state-machine ticks + LCD live volume ──────────────────
+    // Timer: drives state-machine ticks + LCD live volume
     Timer loopTimer(LOOP_INTERVAL_MS);
     loopTimer.registerCallback([&controller, &lcd, &flowMeter]() {
         controller.tick();
@@ -121,7 +117,7 @@ int main(int argc, char* argv[]) {
     });
     loopTimer.start();
 
-    // ── Keyboard thread (optional — same as headless app) ────────────────────
+    // Keyboard thread
     std::atomic<bool> kbRunning{true};
     std::thread keyboardThread;
 
@@ -148,17 +144,17 @@ int main(int argc, char* argv[]) {
         });
     }
 
-    // ── Create and show the Qt GUI window ────────────────────────────────────
+    // Create and show the Qt GUI window
     AquaFlowWindow window(controller, flowMeter);
     window.show();
     window.startDAQ();
 
     Logger::info("GUI window opened — use the on-screen buttons or keyboard controls.");
 
-    // ── Qt event loop (replaces sigwait in headless mode) ────────────────────
+    // Qt event loop (replaces sigwait in headless mode)
     int result = app.exec();
 
-    // ── Shutdown ─────────────────────────────────────────────────────────────
+    // Shutdown
     Logger::info("GUI closed — shutting down.");
 
     loopTimer.stop();

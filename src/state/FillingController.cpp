@@ -117,7 +117,7 @@ void FillingController::tick() {
         break;
     }
 
-    // ── FILLING: pump running, counting flow pulses ───────────────────────────
+    //  FILLING: pump running, counting flow pulses
     case SystemState::FILLING: {
         if (!bottlePresent_.load(std::memory_order_acquire)) {
             // Emergency abort — cup removed during fill
@@ -137,7 +137,7 @@ void FillingController::tick() {
         break;
     }
 
-    // ── FILL_COMPLETE: pump off; wait for cup removal to reset ───────────────
+    // FILL_COMPLETE: pump off; wait for cup removal to reset 
     case SystemState::FILL_COMPLETE: {
         if (!bottlePresent_.load(std::memory_order_acquire)) {
             // Cup is gone — return to size selection for next customer.
@@ -154,7 +154,7 @@ void FillingController::tick() {
     }
 }
 
-// ─── Accessors ────────────────────────────────────────────────────────────────
+//  Accessors 
 
 SystemState FillingController::getState() const { return state_; }
 

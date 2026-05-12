@@ -10,22 +10,20 @@
 #include <functional>
 #include <string>
 
-// ─── Cup size selection ───────────────────────────────────────────────────────
+// Cup size selection
 
 /**
- * @brief Three dispense sizes mapped to McDonald's UK soft-drink cup volumes.
- *
+ * @brief Three dispense sizes mapped to McDonald's UK soft drink cup volumes.
  * Small = 250 ml  |  Medium = 400 ml  |  Large = 500 ml
  */
 enum class CupSize { SMALL, MEDIUM, LARGE };
 
-// ─── System state machine ─────────────────────────────────────────────────────
+//  System state machine 
 
 /**
  * @brief Operational states of the AquaFlow filling cycle.
  *
  * SELECTING_SIZE  — User cycles S/M/L with short button presses;
- *                   a long press confirms the selection.
  * WAITING_FOR_CUP — Size confirmed; system waits for a cup within
  *                   proximity range (~5-10 cm from the APDS-9960).
  * CONFIRMING      — Cup detected; hold timer debounces the placement.
@@ -68,8 +66,7 @@ public:
     /** @brief Run one cycle of the state machine (call from timer callback). */
     void tick();
 
-    // ── Button event handlers ─────────────────────────────────────────────────
-
+    //  Button event handlers
     /**
      * @brief Short button press — cycle Small → Medium → Large → Small.
      * No-op unless in SELECTING_SIZE.  Thread-safe.

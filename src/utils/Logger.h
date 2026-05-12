@@ -4,7 +4,7 @@
 #include <iostream>
 
 /**
- * @brief Thread-safe console logger.
+ * @brief Thread safe console logger.
  *
  * Wraps std::cout with a mutex so that callbacks arriving from
  * multiple threads (sensor thread, flow thread, main thread) do

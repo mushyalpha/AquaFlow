@@ -6,7 +6,7 @@
 #include <cstdint>
 
 /**
- * @brief RTES-compliant periodic timer using Linux timerfd.
+ * @brief periodic timer using Linux timerfd.
  *
  * Fires a std::function callback at a fixed interval without
  * using sleep commands. The blocking read() on the timerfd
