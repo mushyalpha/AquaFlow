@@ -11,6 +11,8 @@
 
 #include <QApplication>
 
+#include <iomanip>
+#include <sstream>
 #include <csignal>
 #include <thread>
 #include <atomic>

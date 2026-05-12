@@ -1,0 +1,5 @@
+if(EXISTS "/mnt/c/Users/Bonolo Masima/Desktop/FlowFizzy/build-wsl/tests/filling_tests[1]_tests.cmake")
+  include("/mnt/c/Users/Bonolo Masima/Desktop/FlowFizzy/build-wsl/tests/filling_tests[1]_tests.cmake")
+else()
+  add_test(filling_tests_NOT_BUILT filling_tests_NOT_BUILT)
+endif()

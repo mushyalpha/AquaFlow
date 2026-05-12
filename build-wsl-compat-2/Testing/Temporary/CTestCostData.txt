@@ -1,0 +1,14 @@
+FlowMeterTest.StartsWithZeroVolume 1 0.0121134
+FlowMeterTest.CountsPulsesAndCalculatesVolume 1 0.0148032
+FlowMeterTest.ResetClearsCount 1 0.0263958
+FlowMeterTest.DetectsReachedTarget 1 0.0168451
+FillingControllerTest.InitialStateIsSelectingSize 1 0.0120551
+FillingControllerTest.LongPressConfirmsSelectionAndWaitsForCup 1 0.0136288
+FillingControllerTest.ReturnsToWaitingIfProximityClearedDuringConfirmation 1 0.0162305
+FillingControllerTest.CompletesFullCycleSuccessfully 1 1.56438
+PumpControllerTest.InitialStateIsOff 1 0.0190496
+PumpControllerTest.TurnOnAndOff 1 0.0180288
+PumpControllerTest.RelayModeActiveLow 1 0.0195331
+TimerTest.FiresCallbackRepeatedly 1 0.234817
+TimerTest.StopTerminatesWorker 1 0.163465
+---
