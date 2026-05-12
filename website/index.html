@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowFizzy — Building a Touchless Water Dispenser from Scratch</title>
+  <meta name="description" content="The complete build journal of FlowFizzy: a smart, fully-automated touchless water dispenser built on the Raspberry Pi 5 using C++ and real-time embedded systems principles.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="images/fizzyflow_logo.png">
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────── -->
+<nav class="navbar" id="navbar">
+  <div class="logo">
+    <img src="images/fizzyflow_logo.png" alt="FlowFizzy logo">
+    FlowFizzy
+  </div>
+  <ul class="nav-links">
+    <li><a href="#story">Story</a></li>
+    <li><a href="#hardware">Hardware</a></li>
+    <li><a href="#software">Software</a></li>
+    <li><a href="#timeline">Timeline</a></li>
+    <li><a href="#team">Team</a></li>
+  </ul>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────── -->
+<header class="hero" id="hero">
+  <div class="hero-content">
+    <div class="badge">University of Glasgow · RTES 2026</div>
+    <h1>FlowFizzy</h1>
+    <p class="tagline">
+      A smart, fully-automated touchless water dispenser built on the Raspberry Pi 5.
+      Designed for hygiene, precision, and real-time embedded excellence.
+    </p>
+    <a href="#story" style="display:inline-block;padding:.75rem 2rem;border-radius:999px;background:linear-gradient(135deg,var(--accent),#0891b2);color:#fff;font-weight:600;font-size:.95rem;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 20px rgba(6,182,212,.3);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      Read Our Story ↓
+    </a>
+  </div>
+  <div class="scroll-hint">scroll to explore</div>
+</header>
+
+<!-- ── Stats Bar ──────────────────────────────────────────── -->
+<section class="section" style="padding-top:3rem;padding-bottom:2rem">
+  <div class="stats">
+    <div class="stat-card fade-in">
+      <div class="number">140+</div>
+      <div class="label">Git Commits</div>
+    </div>
+    <div class="stat-card fade-in">
+      <div class="number">5</div>
+      <div class="label">Hardware Drivers</div>
+    </div>
+    <div class="stat-card fade-in">
+      <div class="number">£31.74</div>
+      <div class="label">Total BoM Cost</div>
+    </div>
+    <div class="stat-card fade-in">
+      <div class="number">&lt;150ms</div>
+      <div class="label">Emergency Stop</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"><hr></div>
+
+<!-- ── The Story ──────────────────────────────────────────── -->
+<section class="section" id="story">
+  <span class="section-label">The Story</span>
+  <h2>How It All Started</h2>
+  <p>
+    It started with a simple question we kept asking ourselves in the lab: <strong>"Why are restaurant drink dispensers so clunky?"</strong>
+    You press a lever, you touch a button, you hold a cup at an awkward angle — and half the time, you overfill and spill.
+    We thought: what if the machine just <em>knew</em> what you wanted and poured it for you, hands-free?
+  </p>
+  <p>
+    That idea became <strong>FlowFizzy</strong> — a touchless automated water dispenser powered by a Raspberry Pi 5.
+    The concept is straightforward: you pick your cup size with a button, place your cup on the platform,
+    and the machine detects it with an infrared proximity sensor, starts pumping, counts exactly how much liquid has passed
+    through the flow sensor, and stops the moment it hits the target. No touching. No spillage. Just precision.
+  </p>
+
+  <div class="feature-img fade-in" style="max-width:500px;margin-left:auto;margin-right:auto">
+    <img src="images/mcdonalds_demo.jpg" alt="FlowFizzy in action — dispensing liquid into a McDonald's cup with the LCD display showing fill progress">
+  </div>
+  <p class="img-caption">FlowFizzy in action — dispensing into a McDonald's cup, with the LCD showing real-time fill progress.</p>
+
+  <p>
+    What made this project exciting wasn't just making water come out of a tube — it was doing it <strong>properly</strong>.
+    We wanted to build something that felt like a real embedded product: interrupt-driven I/O, a proper state machine,
+    SOLID architecture, and code that could pass a professional review. The kind of thing where you could swap out the
+    pump driver for a different motor and nothing else in the system would break.
+  </p>
+  <p>
+    We built it over several months in <strong>Rankine Lab 509</strong> at the University of Glasgow, starting from bare wires on a breadboard
+    and working our way up to a 3D-printed enclosure with an integrated sensor mount. This article is the story of that journey.
+  </p>
+</section>
+
+<div class="divider"><hr></div>
+
+<!-- ── Hardware ───────────────────────────────────────────── -->
+<section class="section" id="hardware">
+  <span class="section-label">Hardware</span>
+  <h2>The Components That Make It Work</h2>
+  <p>
+    We deliberately kept the hardware minimal — just four active components plus the Pi itself.
+    The assessment rewards code quality, not component count, and a simple hardware stack meant we could focus
+    on making the software architecture genuinely excellent.
+  </p>
+
+  <h3>The Proximity Sensor — APDS-9960</h3>
+  <p>
+    This tiny purple board is the heart of the touchless interaction. It fires an infrared beam and measures how much light bounces back.
+    When you slide a cup onto the platform, the proximity reading jumps from ~15 (ambient) to ~100+ (cup present at 10 cm).
+    We mount it horizontally on the 3D-printed stand, facing inward, so it's naturally protected from water splashes.
+  </p>
+  <p>
+    Getting this working in C++ was honestly one of the hardest parts. The APDS-9960 has a gesture engine built in that
+    <strong>intercepts proximity data</strong> — we spent an entire lab session debugging why <code>PDATA</code> wouldn't update,
+    only to discover the gesture engine (<code>GEN=1, GMODE=1</code>) was stealing the readings. Once we stripped those registers
+    out and configured proximity-only mode, it worked perfectly.
+  </p>
+
+  <div class="feature-img fade-in" style="max-width:360px;margin-left:auto;margin-right:auto">
+    <img src="images/proximity_sensor.png" alt="APDS-9960 proximity and gesture sensor breakout board">
+  </div>
+  <p class="img-caption">The APDS-9960 proximity sensor — the heart of touchless cup detection.</p>
+
+  <h3>The Flow Meter — YF-S401</h3>
+  <p>
+    This is how we know exactly how much liquid has been dispensed. Inside the YF-S401 is a small turbine with a Hall-effect sensor.
+    As water flows through, the turbine spins and generates digital pulses — each pulse corresponds to a tiny fraction of a millilitre.
+    Our C++ driver uses <strong>libgpiod edge interrupts</strong> to count these pulses with sub-millisecond latency, running on its own
+    dedicated thread.
+  </p>
+  <p>
+    Calibration was critical. We ran our <code>./calibrate</code> tool, pumped water into a measuring jug, and measured:
+    <strong>4,027 pulses = 260 ml</strong>, giving us <code>ML_PER_PULSE = 0.064564</code>. That number is baked into
+    <code>PinConfig.h</code> and gives us ±5 ml accuracy on a 500 ml fill.
+  </p>
+
+  <div class="feature-img fade-in" style="max-width:360px;margin-left:auto;margin-right:auto">
+    <img src="images/flow_sensor.png" alt="YF-S401 water flow sensor with Hall-effect turbine">
+  </div>
+  <p class="img-caption">The YF-S401 — a Hall-effect turbine sensor that generates digital pulses as water passes through.</p>
+
+  <h3>The Pump — JT80SL Submersible</h3>
+  <p>
+    A small 5V DC submersible pump that sits at the bottom of the water reservoir. It draws ~220 mA — way more than a GPIO pin can supply —
+    so we drive it through a <strong>TIP122 Darlington transistor</strong> with a flyback diode for back-EMF protection.
+    The Pi just sends a 3.3V logic signal to the transistor's base, and the transistor switches the pump's power rail.
+  </p>
+
+  <div class="feature-img fade-in" style="max-width:360px;margin-left:auto;margin-right:auto">
+    <img src="images/pump.png" alt="JT80SL DC submersible water pump">
+  </div>
+  <p class="img-caption">The JT80SL submersible pump — driven via a TIP122 transistor for safe current switching.</p>
+
+  <h3>The LCD — 16×2 I2C Display</h3>
+  <p>
+    A classic HD44780 display over I2C gives real-time feedback: the selected cup size, fill progress (<code>320ml / 500ml</code>),
+    and status messages. We only update it on state changes to avoid I2C bus faults from writing every 100 ms.
+  </p>
+
+  <div class="feature-img fade-in" style="max-width:400px;margin-left:auto;margin-right:auto">
+    <img src="images/lcd_display.png" alt="16x2 HD44780 LCD display module with I2C backpack">
+  </div>
+  <p class="img-caption">The 16×2 I2C LCD — provides real-time fill progress and status feedback.</p>
+
+  <h3>Bill of Materials</h3>
+  <table class="bom-table">
+    <thead><tr><th>Component</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><td>DollaTek APDS-9960 Gesture/Proximity Sensor</td><td>£4.99</td></tr>
+      <tr><td>YF-S401 Water Flow Sensor</td><td>£7.45</td></tr>
+      <tr><td>JT80SL DC Submersible Pump</td><td>£5.20</td></tr>
+      <tr><td>TIP122 Transistor + Diode + Resistor Kit</td><td>£2.50</td></tr>
+      <tr><td>16×2 I2C LCD Display</td><td>£6.10</td></tr>
+      <tr><td>Breadboard &amp; Jumper Wires</td><td>£3.50</td></tr>
+      <tr><td>Silicone Tubing (1 m)</td><td>£2.00</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>£31.74</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="feature-img fade-in">
+    <img src="images/RPI_PinOut.png" alt="Raspberry Pi GPIO pinout diagram showing all pin assignments used in FlowFizzy">
+  </div>
+  <p class="img-caption">Raspberry Pi GPIO pinout — our system uses GPIO 2/3 (I2C), GPIO 17 (flow), GPIO 18 (pump), and GPIO 26 (button).</p>
+</section>
+
+<div class="divider"><hr></div>
+
+<!-- ── Software Architecture ─────────────────────────────── -->
+<section class="section" id="software">
+  <span class="section-label">Software</span>
+  <h2>The Architecture Behind the Pour</h2>
+  <p>
+    The software follows a strict <strong>event-driven, non-blocking architecture</strong>.
+    There are no polling loops, no <code>sleep()</code> calls, and no busy-waiting.
+    Every component runs on its own thread, communicating through atomic variables and callbacks.
+  </p>
+
+  <div class="feature-img fade-in">
+    <img src="images/architecture_diagram.png" alt="System architecture diagram showing event-driven component connections">
+  </div>
+  <p class="img-caption">High-level architecture — each sensor has its own thread; the state machine ticks every 100 ms.</p>
+
+  <h3>The State Machine</h3>
+  <p>
+    The <code>FillingController</code> is the brain. It runs a finite state machine that transitions through:
+    <strong>SELECTING_SIZE → WAITING_FOR_CUP → CONFIRMING → FILLING → FILL_COMPLETE</strong> — and back again.
+    Every 100 ms, a <code>timerfd</code>-based tick fires, and the controller reads atomic sensor state to decide what to do next.
+  </p>
+
+  <h3>SOLID Principles — Not Just Buzzwords</h3>
+  <p>
+    We took SOLID seriously. The <code>FillingController</code> depends on <strong>abstract interfaces</strong>
+    (<code>IProximitySensor</code>, <code>IPump</code>, <code>IFlowMeter</code>) — it has no idea it's talking to a
+    Raspberry Pi GPIO pin. You could swap in a completely different pump and the controller wouldn't need a single line changed.
+  </p>
+  <p>
+    Each hardware driver has exactly one responsibility: <code>FlowMeter</code> counts pulses, <code>PumpController</code>
+    switches the transistor, <code>GestureSensor</code> reads proximity. All logging goes through a centralised <code>Logger</code> —
+    no driver ever touches <code>std::cout</code>.
+  </p>
+
+  <h3>Interrupt-Driven I/O</h3>
+  <p>
+    The flow meter uses <code>libgpiod</code> edge events — the thread literally sleeps until a voltage change on GPIO 17.
+    No CPU is wasted. Same pattern for the physical button on GPIO 26: the <code>GpioButton</code> driver sleeps until
+    a press/release edge, then classifies it as a short press (cycle size) or long press (confirm) based on hold duration.
+  </p>
+
+  <div class="code-block">
+    <span class="comment">// How the button callback is wired — the lecture's signal-slot pattern</span><br>
+    <span class="comment">// in AquaFlowApp::start()</span><br><br>
+    button_.<span class="function">registerShortPress</span>([<span class="keyword">this</span>]{<br>
+    &nbsp;&nbsp;controller_.<span class="function">onShortPress</span>();&nbsp;&nbsp;<span class="comment">// cycles S → M → L → S</span><br>
+    });<br><br>
+    button_.<span class="function">registerLongPress</span>([<span class="keyword">this</span>]{<br>
+    &nbsp;&nbsp;controller_.<span class="function">onLongPress</span>();&nbsp;&nbsp;&nbsp;<span class="comment">// confirms selected size</span><br>
+    });
+  </div>
+
+  <h3>Emergency Stop</h3>
+  <p>
+    Safety is non-negotiable for a water dispenser. If the proximity sensor detects the cup has been removed mid-fill
+    (reading drops below threshold), the state machine kills the pump within <strong>&lt; 150 ms</strong> — one tick cycle.
+    The flow meter keeps its count, so if the cup is replaced, filling resumes from where it left off.
+  </p>
+</section>
+
+<div class="divider"><hr></div>
+
+<!-- ── Timeline ──────────────────────────────────────────── -->
+<section class="section" id="timeline">
+  <span class="section-label">Timeline</span>
+  <h2>The Build Journey</h2>
+  <p>
+    From first commit to final demo — here's how FlowFizzy evolved over the semester.
+  </p>
+
+  <div class="timeline">
+    <div class="tl-item fade-in">
+      <div class="date">Early March 2026</div>
+      <h4>First Wires on a Breadboard</h4>
+      <p>Initial hardware tests — ultrasonic sensor, pump relay. Translated the Python prototype into C++. Early commits were messy README updates and "test commit" messages.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">20 March 2026</div>
+      <h4>The Pump Decision</h4>
+      <p>Switched from the 12V solenoid valve to the JT80SL submersible pump. Wired the TIP122 transistor circuit. Tried powering the pump directly from GPIO (bad idea). Settled on the transistor + flyback diode approach.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">Late March 2026</div>
+      <h4>Flow Meter & LCD Integration</h4>
+      <p>Got the YF-S401 counting pulses via libgpiod edge detection. Brought up the 16×2 LCD over I2C. First successful end-to-end fill: pump runs → flow counts → pump stops at target.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">Early April 2026</div>
+      <h4>Gesture Sensor Saga</h4>
+      <p>Spent several sessions wrestling with the APDS-9960. Gesture detection worked in Python but not in C++. Eventually found the gesture engine was stealing proximity data. Stripped it out — proximity-only mode worked perfectly.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">14 April 2026</div>
+      <h4>The SOLID Refactor</h4>
+      <p>Major architecture overhaul. Applied SRP to every class. Introduced IProximitySensor, IPump, IFlowMeter interfaces. Routed all output through Logger. Removed direct std::cout from every driver. This was the day the codebase went from "student project" to "professional."</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">20 April 2026</div>
+      <h4>Calibration & Interaction Redesign</h4>
+      <p>Abandoned gesture-based size selection (unreliable). Switched to button-driven model. Calibrated the flow meter: 4,027 pulses = 260 ml. Fixed the proximity threshold to 90 for reliable 10 cm detection with McDonald's cups.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">Late April 2026</div>
+      <h4>3D Enclosure & Polish</h4>
+      <p>Designed and printed the enclosure shell with integrated sensor mount, nozzle collar, and ventilation slots using OpenSCAD. The black 3D-printed stand became the signature visual of the project.</p>
+    </div>
+
+    <div class="tl-item fade-in">
+      <div class="date">May 2026</div>
+      <h4>Qt GUI — Real-Time Monitoring Dashboard</h4>
+      <p>Built a full Qt5 desktop GUI (<code>AquaFlowWindow</code>) that mirrors the hardware controls with mouse-clickable buttons (Cycle Size, Confirm &amp; Start, Reset) and plots live dispensed volume against the target using <strong>QCustomPlot</strong> at ~25 fps. The GUI runs alongside the embedded state machine — click "Cycle Size" to step through S→M→L, "Confirm &amp; Start" to trigger filling, and watch the real-time volume curve race toward the red target line. The system is now fully operable without touching the physical hardware.</p>
+    </div>
+  </div>
+
+  <div class="gallery fade-in" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+    <img src="images/cad_front.png" alt="ForgeCad front-face render of FlowFizzy enclosure showing nozzle slot, LCD cutout and button hole">
+    <img src="images/cad_iso.png" alt="ForgeCad isometric render of FlowFizzy enclosure showing side ventilation slots and nozzle outlet">
+  </div>
+  <p class="img-caption">3D enclosure designed in <strong>ForgeCad</strong> (Java) — front face showing the nozzle slot, LCD window &amp; button port (left); isometric view showing ventilation slots &amp; curved nozzle outlet (right).</p>
+</section>
+
+<div class="divider"><hr></div>
+
+<!-- ── Team ───────────────────────────────────────────────── -->
+<section class="section" id="team">
+  <span class="section-label">The Team</span>
+  <h2>Who Built This</h2>
+
+  <div class="team-grid">
+    <div class="team-card fade-in">
+      <div class="avatar">A</div>
+      <h4>Abdullah Alkabbawi</h4>
+      <p>Real-Time Architecture, State Machine Logic, Hardware Integration, Multithreading</p>
+    </div>
+    <div class="team-card fade-in">
+      <div class="avatar">B</div>
+      <h4>Bonolo Masima</h4>
+      <p>Hardware Specifications, Documentation (ADRs), CAD Design, Integration Testing</p>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:2.5rem">
+    <p style="color:var(--muted);font-size:.95rem;margin-bottom:1rem">
+      Built as part of <strong>Real-Time Embedded Systems (RTES)</strong> at the <strong>University of Glasgow</strong>, 2026.
+    </p>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────── -->
+<footer class="footer">
+  <p>FlowFizzy © 2026 — A Real-Time Embedded Systems Project</p>
+  <div class="social-links">
+    <a href="https://www.instagram.com/flow_fizzy/" target="_blank" rel="noopener">Instagram</a>
+    <a href="https://www.tiktok.com/@aquafl0wx" target="_blank" rel="noopener">TikTok</a>
+    <a href="https://www.youtube.com/@FizzyFlow-q8b/shorts" target="_blank" rel="noopener">YouTube</a>
+    <a href="https://github.com/mushyalpha/FlowFizzy" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+<!-- ── Scripts ────────────────────────────────────────────── -->
+<script>
+// Fade-in on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// Navbar scroll effect
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+  const navbar = document.getElementById('navbar');
+  const curr = window.pageYOffset;
+  navbar.style.transform = curr > lastScroll && curr > 100 ? 'translateY(-100%)' : 'translateY(0)';
+  lastScroll = curr;
+});
+
+// Active nav link highlight
+const sections = document.querySelectorAll('.section[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (window.pageYOffset >= s.offsetTop - 200) current = s.id; });
+  document.querySelectorAll('.nav-links a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+</body>
+</html>
