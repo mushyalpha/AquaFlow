@@ -44,7 +44,7 @@ constexpr int CUP_CONFIRM_MS = 1500;  // ms
 //
 // To re-calibrate: run sudo ./calibrate in the build directory.
 // Let the pump fill a known volume, press Ctrl+C, enter the actual ml.
-constexpr double ML_PER_PULSE = 0.117693;  // mL per pulse — calibrated 2026-05-12 (250ml target produced 300ml actual)
+constexpr double ML_PER_PULSE = 0.082423;  // mL per pulse — calibrated 2026-05-13 (Medium cup: 4853 pulses = 400ml)
 
 // ─── Cup Size Volumes (McDonald's UK dispensing targets) ─────────────────────
 constexpr double CUP_SMALL_ML  = 250.0;   // Small  (~8.5 fl oz)
